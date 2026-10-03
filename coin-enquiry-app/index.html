@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coin Enquiry</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Coin Enquiry</h1>
+    <label class="currency">
+      Currency
+      <select id="currency">
+        <option value="usd">USD $</option>
+        <option value="inr">INR ₹</option>
+        <option value="eur">EUR €</option>
+        <option value="gbp">GBP £</option>
+        <option value="jpy">JPY ¥</option>
+      </select>
+    </label>
+  </header>
+
+  <main>
+    <form id="search-form" class="search" autocomplete="off">
+      <input id="search-input" type="search" placeholder="Search a coin by name or symbol (e.g. bitcoin, ETH)" aria-label="Search coin" />
+      <button type="submit">Search</button>
+      <ul id="suggestions" class="suggestions" hidden></ul>
+    </form>
+
+    <p id="status" class="status" role="status"></p>
+
+    <section id="detail" class="card detail" hidden></section>
+
+    <section class="card">
+      <div class="tabs">
+        <button class="tab active" data-tab="top">Top 50</button>
+        <button class="tab" data-tab="watchlist">Watchlist</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Coin</th><th class="num">Price</th>
+              <th class="num">24h</th><th class="num hide-sm">Market cap</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="coin-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>Data from <a href="https://www.coingecko.com" target="_blank" rel="noopener">CoinGecko</a>. Not financial advice.</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
