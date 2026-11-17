@@ -12,11 +12,17 @@ import android.graphics.Outline
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.RingtoneManager
 import android.graphics.drawable.Drawable
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.text.TextUtils
 import android.view.GestureDetector
 import android.view.Gravity
@@ -186,7 +192,11 @@ class IslandController(private val ctx: Context) {
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
-            Prefs.ENABLED -> refreshAttach()
+            Prefs.ENABLED -> {
+                refreshAttach()
+                PopupBlocker.sync(ctx, true)
+            }
+            Prefs.BLOCK -> PopupBlocker.sync(ctx, true)
             Prefs.Y, Prefs.X, Prefs.IDLE -> if (attached) {
                 if (mode == Mode.IDLE) snapIdle() else goBase()
             }
@@ -214,7 +224,7 @@ class IslandController(private val ctx: Context) {
     }
 
     private fun centerX(): Float = camX + dp(Prefs.xAdj(prefs).toFloat())
-    private fun centerY(): Float = camY + dp(Prefs.yAdj(prefs).toFloat())
+    private fun centerY(): Float = camY + dp(2f + Prefs.yAdj(prefs))
     private fun compactH(): Int = max(idleSize(), dpi(30f))
     private fun compactW(): Int = min((screenW * 0.6f).roundToInt(), dpi(240f))
     private fun expandedW(): Int = min(screenW - dpi(20f), dpi(420f))
@@ -529,6 +539,48 @@ class IslandController(private val ctx: Context) {
         val h = max(measureHeight(v, w), dpi(64f))
         morph(w, h, dp(36f), topFor(compactH()), 1f, v)
         scheduleCollapse(Prefs.dur(prefs) * 1000L)
+        if (n.key != "island_test") ping()
+    }
+
+    private var lastPing = 0L
+
+    /** Popups band hain to island khud halki sound + vibration deta hai */
+    private fun ping() {
+        if (!Prefs.block(prefs)) return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastPing < 1500) return
+        lastPing = now
+        val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        when (am.ringerMode) {
+            AudioManager.RINGER_MODE_NORMAL -> {
+                playSound()
+                vibrate()
+            }
+            AudioManager.RINGER_MODE_VIBRATE -> vibrate()
+            else -> {}
+        }
+    }
+
+    private fun playSound() {
+        try {
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) ?: return
+            val r = RingtoneManager.getRingtone(ctx, uri) ?: return
+            r.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            r.play()
+        } catch (_: Exception) {
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibrate() {
+        try {
+            val v = ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 35, 70, 35), -1))
+        } catch (_: Exception) {
+        }
     }
 
     fun onNotificationRemoved(key: String) {
@@ -658,14 +710,26 @@ class IslandController(private val ctx: Context) {
         row.addView(iv, LinearLayout.LayoutParams(size, size))
 
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(tv(12f, gray).apply { text = n.appName + "  ·  now" })
-        col.addView(tv(15.5f, Color.WHITE, bold = true).apply { text = n.title }, lpTop(3f))
+        // Upar: naam (bold) ... right side me "now"
+        val head = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        head.addView(
+            tv(16f, Color.WHITE, bold = true).apply { text = n.title },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        head.addView(tv(12.5f, gray).apply { text = "now" }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { leftMargin = dpi(8f) })
+        col.addView(head)
         if (n.text.isNotBlank()) {
             col.addView(tv(14.5f, bodyColor, lines = 5).apply {
                 text = n.text
-                setLineSpacing(0f, 1.1f)
-            }, lpTop(3f))
+                setLineSpacing(0f, 1.12f)
+            }, lpTop(4f))
         }
+        col.addView(tv(11.5f, gray).apply { text = n.appName }, lpTop(5f))
         row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
             leftMargin = dpi(12f)
         })

@@ -35,6 +35,7 @@ object Prefs {
     const val NOTIF = "notif"
     const val MUSIC = "music"
     const val CHARGE = "charge"
+    const val BLOCK = "block_popups"
     // Ye sab camera ki auto-position ke upar "adjustment" hain (0 = bilkul camera pe)
     const val Y = "y_adj"
     const val X = "x_adj"
@@ -50,6 +51,7 @@ object Prefs {
     fun notif(p: SharedPreferences) = p.getBoolean(NOTIF, true)
     fun music(p: SharedPreferences) = p.getBoolean(MUSIC, true)
     fun charge(p: SharedPreferences) = p.getBoolean(CHARGE, true)
+    fun block(p: SharedPreferences) = p.getBoolean(BLOCK, false)
     fun yAdj(p: SharedPreferences) = p.getInt(Y, 0)
     fun xAdj(p: SharedPreferences) = p.getInt(X, 0)
     fun sizeAdj(p: SharedPreferences) = p.getInt(IDLE, 0)

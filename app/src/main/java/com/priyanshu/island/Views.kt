@@ -5,13 +5,11 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.CornerPathEffect
-import android.graphics.LinearGradient
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.RectF
-import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.view.View
@@ -24,10 +22,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/**
- * Island ki glossy skin: kaala glass, upar halki chamak (sheen) aur
- * patli shiny border. gloss = 0 (idle) se 1 (expanded) tak chamak badhti hai.
- */
+/** Island ki skin: pure black rounded shape (iPhone jaisa). */
 class IslandDrawable(private val density: Float) : Drawable() {
     var radius = 0f
         set(v) {
@@ -41,8 +36,6 @@ class IslandDrawable(private val density: Float) : Drawable() {
         }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
-    private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val rect = RectF()
 
     private fun r(w: Float, h: Float) = max(0f, min(radius, min(w, h) / 2f))
@@ -51,36 +44,9 @@ class IslandDrawable(private val density: Float) : Drawable() {
         val b = bounds
         if (b.isEmpty) return
         rect.set(b)
-        val w = rect.width()
-        val h = rect.height()
-        val rad = r(w, h)
-
-        // 1. Kaala body
+        val rad = r(rect.width(), rect.height())
+        // iPhone jaisa pure black - koi grey nahi
         canvas.drawRoundRect(rect, rad, rad, fill)
-
-        // 2. Upar se aati halki glass chamak
-        val topAlpha = (26 + 34 * gloss).roundToInt()
-        sheen.shader = LinearGradient(
-            0f, rect.top, 0f, rect.top + h * 0.6f,
-            intArrayOf(Color.argb(topAlpha, 255, 255, 255), Color.argb(0, 255, 255, 255)),
-            null, Shader.TileMode.CLAMP
-        )
-        canvas.drawRoundRect(rect, rad, rad, sheen)
-
-        // 3. Shiny patli border (upar bright, neeche fade)
-        val sw = density * 1f
-        border.strokeWidth = sw
-        border.shader = LinearGradient(
-            0f, rect.top, 0f, rect.bottom,
-            intArrayOf(
-                Color.argb((70 + 60 * gloss).roundToInt(), 255, 255, 255),
-                Color.argb(10, 255, 255, 255)
-            ),
-            null, Shader.TileMode.CLAMP
-        )
-        rect.inset(sw / 2f, sw / 2f)
-        val br = max(0f, rad - sw / 2f)
-        canvas.drawRoundRect(rect, br, br, border)
     }
 
     override fun getOutline(outline: Outline) {

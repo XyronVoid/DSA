@@ -51,6 +51,8 @@ class IslandService : AccessibilityService() {
         }
         receiverOn = true
 
+        PopupBlocker.sync(this, true)
+
         // Agar gaana pehle se chal raha hai to turant dikhao
         NotifListener.instance?.refresh()
     }
@@ -83,6 +85,8 @@ class IslandService : AccessibilityService() {
             receiverOn = false
         }
         handler.removeCallbacksAndMessages(null)
+        // Island band = system popups wapas normal
+        PopupBlocker.sync(this, false)
         controller?.stop()
         controller = null
         if (instance === this) instance = null

@@ -75,6 +75,26 @@ class MainActivity : Activity() {
         toggle(feat, "Music player", Prefs.MUSIC)
         toggle(feat, "Charging animation", Prefs.CHARGE)
 
+        // ---- Popup blocker
+        val block = card(col, "System popup band karo")
+        block.addView(
+            label(
+                "ON karne pe WhatsApp, Insta, SMS sab ke upar se aane wale system popup band ho jayenge. Sab sirf island pe aayega, halki sound + vibration ke saath. Notifications upar wali list me safe rahengi. Calls aur alarm normal bajenge.",
+                13f, gray
+            ), topLp(6)
+        )
+        toggle(block, "Sab kuch sirf island pe", Prefs.BLOCK, false) { on ->
+            if (on) {
+                if (!PopupBlocker.supported()) {
+                    Toast.makeText(this, "Ye feature Android 10+ pe hi chalega", Toast.LENGTH_LONG).show()
+                } else if (!PopupBlocker.hasAccess(this)) {
+                    Toast.makeText(this, "List me 'Dynamic Island' ko ON karo, phir wapas aao", Toast.LENGTH_LONG).show()
+                    open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                }
+            }
+            PopupBlocker.sync(this, IslandService.instance != null)
+        }
+
         // ---- Position
         val pos = card(col, "Position aur size")
         pos.addView(
@@ -108,6 +128,8 @@ class MainActivity : Activity() {
         super.onResume()
         accStatus.text = if (isAccessibilityOn()) "✅ Accessibility ON hai" else "❌ Accessibility OFF hai"
         notifStatus.text = if (isNotifOn()) "✅ Notification access mil gaya" else "❌ Notification access nahi hai"
+        // DND access dekar wapas aaye ho to popup blocker chalu kar do
+        PopupBlocker.sync(this, IslandService.instance != null)
     }
 
     // ------------------------------------------------------------ helpers
@@ -182,14 +204,23 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
-    private fun toggle(parent: LinearLayout, title: String, key: String) {
+    private fun toggle(
+        parent: LinearLayout,
+        title: String,
+        key: String,
+        def: Boolean = true,
+        onChange: ((Boolean) -> Unit)? = null
+    ) {
         val sw = Switch(this).apply {
             text = title
             textSize = 15f
             setTextColor(Color.WHITE)
-            isChecked = prefs.getBoolean(key, true)
+            isChecked = prefs.getBoolean(key, def)
             setPadding(0, dp(8), 0, dp(8))
-            setOnCheckedChangeListener { _, checked -> prefs.edit().putBoolean(key, checked).apply() }
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(key, checked).apply()
+                onChange?.invoke(checked)
+            }
         }
         parent.addView(sw, topLp(4))
     }
