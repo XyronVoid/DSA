@@ -21,6 +21,8 @@ import android.service.notification.ZenPolicy
  */
 object PopupBlocker {
     private const val RULE_KEY = "zen_rule_id"
+    @Volatile
+    var lastError: String? = null
     private val COND: Uri = Uri.parse("condition://com.priyanshu.island/popups")
 
     fun supported(): Boolean = Build.VERSION.SDK_INT >= 29
@@ -54,8 +56,10 @@ object PopupBlocker {
             }
             val ruleId: String = existing ?: createRule(ctx, nm).also { p.edit().putString(RULE_KEY, it).apply() }
             nm.setAutomaticZenRuleState(ruleId, Condition(COND, "Island", Condition.STATE_TRUE))
+            lastError = null
             true
         } catch (e: Exception) {
+            lastError = e.javaClass.simpleName + ": " + (e.message ?: "")
             false
         }
     }
@@ -81,5 +85,26 @@ object PopupBlocker {
             true
         )
         return nm.addAutomaticZenRule(rule)
+    }
+
+    /** Settings screen pe dikhane ke liye: blocker sach me chal raha hai ya nahi */
+    fun status(ctx: Context, serviceRunning: Boolean): String {
+        val p = Prefs.get(ctx)
+        if (!Prefs.block(p)) return "Switch OFF hai"
+        if (!supported()) return "❌ Ye feature Android 10+ pe hi chalega"
+        if (!hasAccess(ctx)) return "❌ Do Not Disturb access nahi mila. Neeche wala button dabao"
+        if (!serviceRunning) return "❌ Pehle Accessibility ON karo"
+        if (!Prefs.enabled(p)) return "❌ Island OFF hai"
+        val filter = try {
+            nm(ctx).currentInterruptionFilter
+        } catch (e: Exception) {
+            -1
+        }
+        if (filter == NotificationManager.INTERRUPTION_FILTER_PRIORITY ||
+            filter == NotificationManager.INTERRUPTION_FILTER_ALARMS ||
+            filter == NotificationManager.INTERRUPTION_FILTER_NONE
+        ) return "✅ System popups band hain. Sab island pe aayega"
+        val err = lastError
+        return if (err != null) "❌ Mode ON nahi hua: $err" else "❌ Mode ON nahi hua (filter=$filter). Switch OFF-ON karke dekho"
     }
 }

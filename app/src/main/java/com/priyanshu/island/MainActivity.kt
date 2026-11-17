@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var accStatus: TextView
     private lateinit var notifStatus: TextView
+    private lateinit var blockStatus: TextView
 
     private val gray = Color.parseColor("#8E8E93")
     private val cardColor = Color.parseColor("#1C1C1E")
@@ -93,7 +94,23 @@ class MainActivity : Activity() {
                 }
             }
             PopupBlocker.sync(this, IslandService.instance != null)
+            refreshBlockStatus()
         }
+        blockStatus = label("", 14f, Color.WHITE)
+        block.addView(blockStatus, topLp(8))
+        block.addView(button("Do Not Disturb access do", secondary = true) {
+            open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+        }, topLp(12))
+        block.addView(
+            label("Phir bhi kisi app ka popup aaye to us app ka 'Pop on screen' band kar do:", 13f, gray),
+            topLp(16)
+        )
+        block.addView(button("WhatsApp popup band karo", secondary = true) {
+            openAppNotifs("com.whatsapp")
+        }, topLp(10))
+        block.addView(button("Instagram popup band karo", secondary = true) {
+            openAppNotifs("com.instagram.android")
+        }, topLp(10))
 
         // ---- Position
         val pos = card(col, "Position aur size")
@@ -130,6 +147,22 @@ class MainActivity : Activity() {
         notifStatus.text = if (isNotifOn()) "✅ Notification access mil gaya" else "❌ Notification access nahi hai"
         // DND access dekar wapas aaye ho to popup blocker chalu kar do
         PopupBlocker.sync(this, IslandService.instance != null)
+        refreshBlockStatus()
+    }
+
+    private fun refreshBlockStatus() {
+        blockStatus.text = PopupBlocker.status(this, IslandService.instance != null)
+    }
+
+    private fun openAppNotifs(pkg: String) {
+        val i = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
+        try {
+            startActivity(i)
+            Toast.makeText(this, "Messages / Chats channel kholo → 'Pop on screen' OFF", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ye app phone me nahi mila", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // ------------------------------------------------------------ helpers
