@@ -77,11 +77,20 @@ class MainActivity : Activity() {
 
         // ---- Position
         val pos = card(col, "Position aur size")
-        pos.addView(label("Chhote circle ko apne front camera ke upar fit karo.", 13f, gray), topLp(4))
-        slider(pos, "Upar / neeche", Prefs.Y, 0, 80, Prefs.DEF_Y, "")
-        slider(pos, "Left / right", Prefs.X, -200, 200, 0, "")
-        slider(pos, "Circle size", Prefs.IDLE, 16, 56, Prefs.DEF_IDLE, "")
+        pos.addView(
+            label(
+                "Island apne aap front camera dhundh ke uske upar baithta hai. Thoda idhar-udhar lage to yahan se adjust karo (0 = auto).",
+                13f, gray
+            ), topLp(4)
+        )
+        slider(pos, "Upar / neeche", Prefs.Y, -30, 30, 0, "")
+        slider(pos, "Left / right", Prefs.X, -150, 150, 0, "")
+        slider(pos, "Circle size", Prefs.IDLE, -12, 30, 0, "")
         slider(pos, "Message kitni der dikhe", Prefs.DUR, 2, 12, Prefs.DEF_DUR, " sec")
+        pos.addView(button("Reset (auto camera position)", secondary = true) {
+            prefs.edit().putInt(Prefs.Y, 0).putInt(Prefs.X, 0).putInt(Prefs.IDLE, 0).apply()
+            recreate()
+        }, topLp(14))
 
         // ---- Test
         val test = card(col, "Test karo")

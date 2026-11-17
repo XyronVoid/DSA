@@ -10,9 +10,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -26,6 +26,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -36,14 +37,15 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Island ka dimaag. Ye black pill banata hai, uska size animate karta hai
- * aur decide karta hai kab kya dikhana hai.
+ * Island ka dimaag.
  *
- *  IDLE            -> chhota circle (camera ke upar)
- *  COMPACT_MUSIC   -> lamba pill: album art + naachti bars
- *  COMPACT_INFO    -> charging / battery %
- *  EXPANDED_NOTIF  -> bada card, poora message
- *  EXPANDED_MUSIC  -> bada card, gaana + play/pause/next
+ * Do overlay windows hain:
+ *  - stage: bada, fixed, touch-through window jisme island DRAW hota hai.
+ *           Ye kabhi resize nahi hota, isliye animation smooth rehta hai.
+ *  - touch: chhota invisible window, sirf island ke size ka, jo touch pakad ke
+ *           island ko de deta hai. Baaki screen pe touch normal kaam karta hai.
+ *
+ * Island apne aap front camera (display cutout) dhundh ke uske upar baithta hai.
  */
 class IslandController(private val ctx: Context) {
 
@@ -57,62 +59,105 @@ class IslandController(private val ctx: Context) {
     private val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val prefs = Prefs.get(ctx)
     private val handler = Handler(Looper.getMainLooper())
+    private val density = ctx.resources.displayMetrics.density
 
     private var attached = false
     private var mode = Mode.IDLE
     private var media: MediaInfo? = null
     private var currentNotif: NotifInfo? = null
 
+    // Abhi ka (animate hota hua) shape
     private var curW = 0f
     private var curH = 0f
     private var curR = 0f
+    private var curTop = 0f
+    private var curGloss = 0f
+
+    // Touch window ki jagah (target shape)
+    private var tgtLeft = 0
+    private var tgtTop = 0
+
+    // Front camera ki position (screen pixels)
+    private var camX = 0f
+    private var camY = 0f
+    private var camSize = 0
+
+    private var lastOrientation = -1
+    private var lastWidth = -1
+
     private var anim: ValueAnimator? = null
     private var content: View? = null
 
-    // Music views ke reference, taaki gaana badle to bina flicker update ho
     private var mArt: ImageView? = null
     private var mTitle: TextView? = null
     private var mArtist: TextView? = null
     private var mPlay: GlyphView? = null
     private var mBars: BarsView? = null
 
-    private val collapseRunnable = Runnable { goBase() }
+    private var accentFor: Bitmap? = null
+    private var accentVal = Color.WHITE
 
-    private val bg = GradientDrawable().apply { setColor(Color.BLACK) }
+    private val collapseRunnable = Runnable { goBase() }
+    private val pauseRunnable = Runnable {
+        if (mode == Mode.COMPACT_MUSIC && media?.playing != true) goBase()
+    }
+
+    private val skin = IslandDrawable(density)
 
     private val island = FrameLayout(ctx).apply {
-        background = bg
+        background = skin
         outlineProvider = ViewOutlineProvider.BACKGROUND
         clipToOutline = true
     }
 
-    private val root = object : FrameLayout(ctx) {
-        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-            if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+    private val stage = FrameLayout(ctx).apply {
+        clipChildren = false
+        clipToPadding = false
+    }
+
+    private val touch = object : View(ctx) {
+        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
                 onOutsideTouch()
                 return false
             }
-            return super.dispatchTouchEvent(ev)
+            // Touch window ke coordinates -> island ke coordinates
+            val lp = island.layoutParams as FrameLayout.LayoutParams
+            val e = MotionEvent.obtain(event)
+            e.offsetLocation((tgtLeft - lp.leftMargin).toFloat(), (tgtTop - lp.topMargin).toFloat())
+            val handled = island.dispatchTouchEvent(e)
+            e.recycle()
+            return handled
         }
     }
 
-    private val wlp = WindowManager.LayoutParams(
-        1, 1,
+    private fun overlayParams(w: Int, h: Int, extraFlags: Int) = WindowManager.LayoutParams(
+        w, h,
         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+            extraFlags,
         PixelFormat.TRANSLUCENT
     ).apply {
-        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        gravity = Gravity.TOP or Gravity.LEFT
+        x = 0
+        y = 0
         if (Build.VERSION.SDK_INT >= 30) {
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         } else if (Build.VERSION.SDK_INT >= 28) {
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
     }
+
+    private val stageLp = overlayParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        (340 * density).roundToInt(),
+        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+    )
+
+    private val touchLp = overlayParams(1, 1, WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
 
     private val gestures = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean = true
@@ -128,11 +173,11 @@ class IslandController(private val ctx: Context) {
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
             if (velocityY < -500f && abs(velocityY) > abs(velocityX)) {
-                goBase() // upar swipe = band
+                goBase()
                 return true
             }
             if (velocityY > 500f && abs(velocityY) > abs(velocityX) && mode == Mode.COMPACT_MUSIC) {
-                showExpandedMusic() // neeche swipe = khol do
+                showExpandedMusic()
                 return true
             }
             return false
@@ -142,14 +187,15 @@ class IslandController(private val ctx: Context) {
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             Prefs.ENABLED -> refreshAttach()
-            Prefs.Y, Prefs.X -> applyPosition()
-            Prefs.IDLE, Prefs.MUSIC ->
-                if (attached && (mode == Mode.IDLE || mode == Mode.COMPACT_MUSIC || mode == Mode.EXPANDED_MUSIC)) goBase()
+            Prefs.Y, Prefs.X, Prefs.IDLE -> if (attached) {
+                if (mode == Mode.IDLE) snapIdle() else goBase()
+            }
+            Prefs.MUSIC -> if (attached) goBase()
         }
     }
 
     init {
-        root.addView(island, FrameLayout.LayoutParams(1, 1, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+        stage.addView(island, FrameLayout.LayoutParams(1, 1, Gravity.TOP or Gravity.LEFT))
         island.setOnTouchListener { _, e ->
             gestures.onTouchEvent(e)
             true
@@ -158,18 +204,67 @@ class IslandController(private val ctx: Context) {
 
     // ---------------------------------------------------------------- sizes
 
-    private fun dp(v: Float): Float = v * ctx.resources.displayMetrics.density
-    private fun dpi(v: Float): Int = dp(v).roundToInt()
+    private fun dp(v: Float): Float = v * density
+    private fun dpi(v: Float): Int = (v * density).roundToInt()
     private val screenW: Int get() = ctx.resources.displayMetrics.widthPixels
-    private fun idleSize(): Int = dpi(Prefs.idle(prefs).toFloat())
-    private fun compactH(): Int = max(idleSize(), dpi(28f))
-    private fun compactW(): Int = min((screenW * 0.62f).roundToInt(), dpi(250f))
+
+    private fun idleSize(): Int {
+        val auto = (camSize + dpi(8f)).coerceIn(dpi(22f), dpi(36f))
+        return max(dpi(14f), auto + dpi(Prefs.sizeAdj(prefs).toFloat()))
+    }
+
+    private fun centerX(): Float = camX + dp(Prefs.xAdj(prefs).toFloat())
+    private fun centerY(): Float = camY + dp(Prefs.yAdj(prefs).toFloat())
+    private fun compactH(): Int = max(idleSize(), dpi(30f))
+    private fun compactW(): Int = min((screenW * 0.6f).roundToInt(), dpi(240f))
     private fun expandedW(): Int = min(screenW - dpi(20f), dpi(420f))
+
+    /** Island ka top taaki wo camera ke center pe rahe */
+    private fun topFor(h: Int): Float = max(0f, centerY() - h / 2f)
+
+    /** Island ka left: camera pe centered, par screen se bahar nahi */
+    private fun leftFor(w: Float): Float {
+        val margin = if (w > screenW * 0.5f) dp(10f) else 0f
+        val l = centerX() - w / 2f
+        return l.coerceIn(margin, max(margin, screenW - w - margin))
+    }
+
+    /** Front camera (punch hole) kahan hai, phone se poochho */
+    private fun computeCamera() {
+        var rect: Rect? = null
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                val r = wm.maximumWindowMetrics.windowInsets.displayCutout?.boundingRectTop
+                if (r != null && !r.isEmpty) rect = r
+            } catch (_: Exception) {
+            }
+        }
+        if (rect == null && Build.VERSION.SDK_INT >= 28) {
+            try {
+                val r = stage.rootWindowInsets?.displayCutout?.boundingRects
+                    ?.firstOrNull { it.top < dpi(80f) }
+                if (r != null && !r.isEmpty) rect = r
+            } catch (_: Exception) {
+            }
+        }
+        if (rect != null) {
+            camX = rect.exactCenterX()
+            camY = rect.exactCenterY()
+            // Chauda notch ho to sirf uski height lo
+            camSize = if (rect.width() > rect.height() * 2) rect.height() else max(rect.width(), rect.height())
+        } else {
+            camX = screenW / 2f
+            camY = dp(20f)
+            camSize = dpi(14f)
+        }
+    }
 
     // ------------------------------------------------------------ lifecycle
 
     fun start() {
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        lastOrientation = ctx.resources.configuration.orientation
+        lastWidth = screenW
         refreshAttach()
     }
 
@@ -178,36 +273,60 @@ class IslandController(private val ctx: Context) {
         detach()
     }
 
+    /** Sirf tab react karo jab rotation / screen size sach me badla ho */
     fun onConfigChanged() {
+        val o = ctx.resources.configuration.orientation
+        val w = screenW
+        if (o == lastOrientation && w == lastWidth) return
+        lastOrientation = o
+        lastWidth = w
         refreshAttach()
-        if (attached) goBase()
+        if (attached) {
+            computeCamera()
+            goBase()
+        }
     }
 
     private fun isLandscape() =
         ctx.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     private fun refreshAttach() {
-        // Landscape (video/game) me island chhupa do
         if (Prefs.enabled(prefs) && !isLandscape()) attach() else detach()
     }
 
     private fun attach() {
         if (attached) return
-        wlp.y = dpi(Prefs.y(prefs).toFloat())
-        wlp.x = dpi(Prefs.x(prefs).toFloat())
-        curW = 0f
-        curH = 0f
-        curR = 0f
-        applyIslandSize()
-        wlp.width = 1
-        wlp.height = 1
         try {
-            wm.addView(root, wlp)
-            attached = true
+            wm.addView(stage, stageLp)
         } catch (e: Exception) {
             return
         }
+        try {
+            wm.addView(touch, touchLp)
+        } catch (e: Exception) {
+            try {
+                wm.removeView(stage)
+            } catch (_: Exception) {
+            }
+            return
+        }
+        attached = true
+        computeCamera()
+        curW = 0f
+        curH = 0f
+        curR = 0f
+        curGloss = 0f
+        curTop = centerY()
+        applyGeometry()
         goBase()
+
+        // Purane Android pe camera ki info window lagne ke baad milti hai
+        stage.post {
+            val ox = camX
+            val oy = camY
+            computeCamera()
+            if (attached && (ox != camX || oy != camY) && mode == Mode.IDLE) goBase()
+        }
     }
 
     private fun detach() {
@@ -216,7 +335,11 @@ class IslandController(private val ctx: Context) {
         handler.removeCallbacksAndMessages(null)
         if (!attached) return
         try {
-            wm.removeView(root)
+            wm.removeView(touch)
+        } catch (_: Exception) {
+        }
+        try {
+            wm.removeView(stage)
         } catch (_: Exception) {
         }
         attached = false
@@ -226,40 +349,33 @@ class IslandController(private val ctx: Context) {
         mode = Mode.IDLE
     }
 
-    private fun applyPosition() {
-        wlp.y = dpi(Prefs.y(prefs).toFloat())
-        wlp.x = dpi(Prefs.x(prefs).toFloat())
-        if (attached) {
-            try {
-                wm.updateViewLayout(root, wlp)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
     // ------------------------------------------------------------ animation
 
-    private fun morph(tw: Int, th: Int, tr: Float, newContent: View?) {
+    private fun morph(tw: Int, th: Int, tr: Float, ttop: Float, tgloss: Float, newContent: View?) {
         if (!attached) return
         anim?.cancel()
         val sw = curW
         val sh = curH
         val sr = curR
+        val st = curTop
+        val sg = curGloss
         val growing = tw.toFloat() * th >= sw * sh
 
-        // Window ko pehle hi itna bada kar do ki bounce cut na ho
-        setWindowSize(max(sw, tw * 1.1f).roundToInt() + 2, max(sh, th * 1.12f).roundToInt() + 2)
+        setTouch(tw, th, ttop)
         swapContent(newContent, tw, th)
 
         val a = ValueAnimator.ofFloat(0f, 1f)
-        a.duration = if (growing) 620L else 480L
-        a.interpolator = if (growing) SpringInterpolator(7.5, 9.5) else SpringInterpolator(9.0, 6.0)
+        a.duration = if (growing) 560L else 440L
+        a.interpolator = if (growing) SpringInterpolator(8.5, 8.0) else SpringInterpolator(10.0, 6.0)
         a.addUpdateListener { va ->
             val f = va.animatedValue as Float
+            val fc = f.coerceIn(0f, 1f)
             curW = sw + (tw - sw) * f
             curH = sh + (th - sh) * f
-            curR = sr + (tr - sr) * f.coerceIn(0f, 1f)
-            applyIslandSize()
+            curTop = st + (ttop - st) * fc
+            curR = sr + (tr - sr) * fc
+            curGloss = sg + (tgloss - sg) * fc
+            applyGeometry()
         }
         a.addListener(object : AnimatorListenerAdapter() {
             private var cancelled = false
@@ -272,8 +388,9 @@ class IslandController(private val ctx: Context) {
                     curW = tw.toFloat()
                     curH = th.toFloat()
                     curR = tr
-                    applyIslandSize()
-                    setWindowSize(tw, th) // touch sirf island pe lage, baaki screen free
+                    curTop = ttop
+                    curGloss = tgloss
+                    applyGeometry()
                 }
             }
         })
@@ -281,39 +398,67 @@ class IslandController(private val ctx: Context) {
         a.start()
     }
 
-    private fun applyIslandSize() {
+    private fun applyGeometry() {
+        val w = max(1f, curW)
+        val h = max(1f, curH)
         val lp = island.layoutParams as FrameLayout.LayoutParams
-        lp.width = max(1, curW.roundToInt())
-        lp.height = max(1, curH.roundToInt())
+        lp.width = w.roundToInt()
+        lp.height = h.roundToInt()
+        lp.leftMargin = leftFor(w).roundToInt()
+        lp.topMargin = curTop.roundToInt()
         island.layoutParams = lp
-        bg.cornerRadius = max(0f, min(curR, min(curW, curH) / 2f))
+        skin.radius = curR
+        skin.gloss = curGloss
+        island.elevation = dp(14f) * curGloss
         island.invalidateOutline()
     }
 
-    private fun setWindowSize(w: Int, h: Int) {
-        wlp.width = max(1, w)
-        wlp.height = max(1, h)
+    private fun setTouch(w: Int, h: Int, top: Float) {
+        tgtLeft = leftFor(w.toFloat()).roundToInt()
+        tgtTop = top.roundToInt()
+        touchLp.width = max(1, w)
+        touchLp.height = max(1, h)
+        touchLp.x = tgtLeft
+        touchLp.y = tgtTop
         if (attached) {
             try {
-                wm.updateViewLayout(root, wlp)
+                wm.updateViewLayout(touch, touchLp)
             } catch (_: Exception) {
             }
         }
     }
 
-    /** Purana content fade out, naya fade in. Content fixed size ka hai, island grow hote hue use "reveal" karta hai. */
+    /** Slider chalate waqt circle turant naye jagah pe aa jaye */
+    private fun snapIdle() {
+        anim?.cancel()
+        val s = idleSize()
+        curW = s.toFloat()
+        curH = s.toFloat()
+        curR = s / 2f
+        curTop = topFor(s)
+        curGloss = 0f
+        applyGeometry()
+        setTouch(s, s, curTop)
+    }
+
     private fun swapContent(newView: View?, w: Int, h: Int) {
         val old = content
         if (old != null && old !== newView) {
             old.animate().cancel()
-            old.animate().alpha(0f).setStartDelay(0).setDuration(130)
+            old.animate().alpha(0f).setStartDelay(0).setDuration(120)
                 .withEndAction { island.removeView(old) }.start()
         }
         content = newView
         if (newView != null && newView.parent == null) {
             newView.alpha = 0f
+            newView.scaleX = 0.92f
+            newView.scaleY = 0.92f
+            newView.pivotX = w / 2f
+            newView.pivotY = 0f
             island.addView(newView, FrameLayout.LayoutParams(w, h, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-            newView.animate().alpha(1f).setStartDelay(140).setDuration(240).start()
+            newView.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                .setStartDelay(110).setDuration(260)
+                .setInterpolator(DecelerateInterpolator()).start()
         }
     }
 
@@ -324,10 +469,10 @@ class IslandController(private val ctx: Context) {
 
     // ---------------------------------------------------------------- modes
 
-    /** Normal haalat: gaana chal raha hai to music pill, warna chhota circle */
     fun goBase() {
         if (!attached) return
         handler.removeCallbacks(collapseRunnable)
+        handler.removeCallbacks(pauseRunnable)
         currentNotif = null
         val m = media
         if (m != null && m.playing && Prefs.music(prefs)) showCompactMusic(m) else showIdle()
@@ -337,14 +482,14 @@ class IslandController(private val ctx: Context) {
         mode = Mode.IDLE
         clearMusicRefs()
         val s = idleSize()
-        morph(s, s, s / 2f, null)
+        morph(s, s, s / 2f, topFor(s), 0f, null)
     }
 
     private fun showCompactMusic(m: MediaInfo) {
         mode = Mode.COMPACT_MUSIC
         val w = compactW()
         val h = compactH()
-        morph(w, h, h / 2f, buildCompactMusic(m, h))
+        morph(w, h, h / 2f, topFor(h), 0.4f, buildCompactMusic(m, h))
     }
 
     private fun showExpandedMusic() {
@@ -353,7 +498,7 @@ class IslandController(private val ctx: Context) {
         val w = expandedW()
         val v = buildExpandedMusic(m)
         val h = measureHeight(v, w)
-        morph(w, h, dp(32f), v)
+        morph(w, h, dp(36f), topFor(compactH()), 1f, v)
         scheduleCollapse(7000)
     }
 
@@ -362,14 +507,14 @@ class IslandController(private val ctx: Context) {
         clearMusicRefs()
         val w = compactW()
         val h = compactH()
-        morph(w, h, h / 2f, buildInfoView(charging, batteryPct()))
+        morph(w, h, h / 2f, topFor(h), 0.4f, buildInfoView(charging, batteryPct()))
         scheduleCollapse(if (charging) 3500L else 2500L)
     }
 
     private fun bounce() {
         val s = idleSize()
-        morph((s * 1.7f).roundToInt(), s, s / 2f, null)
-        handler.postDelayed({ if (mode == Mode.IDLE) showIdle() }, 230)
+        morph((s * 1.6f).roundToInt(), s, s / 2f, topFor(s), 0.2f, null)
+        handler.postDelayed({ if (mode == Mode.IDLE) showIdle() }, 220)
     }
 
     // --------------------------------------------------------------- events
@@ -382,7 +527,7 @@ class IslandController(private val ctx: Context) {
         val w = expandedW()
         val v = buildNotifView(n)
         val h = max(measureHeight(v, w), dpi(64f))
-        morph(w, h, dp(32f), v)
+        morph(w, h, dp(36f), topFor(compactH()), 1f, v)
         scheduleCollapse(Prefs.dur(prefs) * 1000L)
     }
 
@@ -395,7 +540,16 @@ class IslandController(private val ctx: Context) {
         if (!attached || !Prefs.music(prefs)) return
         when (mode) {
             Mode.IDLE -> if (m != null && m.playing) showCompactMusic(m)
-            Mode.COMPACT_MUSIC -> if (m == null || !m.playing) goBase() else updateMusicViews(m)
+            Mode.COMPACT_MUSIC -> {
+                if (m == null) {
+                    goBase()
+                } else {
+                    updateMusicViews(m)
+                    handler.removeCallbacks(pauseRunnable)
+                    // Pause hone pe turant band mat karo (buffering me flicker hota hai)
+                    if (!m.playing) handler.postDelayed(pauseRunnable, 2500)
+                }
+            }
             Mode.EXPANDED_MUSIC -> if (m == null) goBase() else updateMusicViews(m)
             else -> {}
         }
@@ -490,7 +644,7 @@ class IslandController(private val ctx: Context) {
         val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpi(16f), dpi(14f), dpi(18f), dpi(14f))
+            setPadding(dpi(18f), dpi(16f), dpi(20f), dpi(16f))
         }
         val size = dpi(44f)
         val iv = ImageView(ctx).apply {
@@ -549,7 +703,7 @@ class IslandController(private val ctx: Context) {
         clearMusicRefs()
         val col = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpi(18f), dpi(18f), dpi(18f), dpi(12f))
+            setPadding(dpi(20f), dpi(20f), dpi(20f), dpi(14f))
         }
         val top = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -643,11 +797,12 @@ class IslandController(private val ctx: Context) {
 
     private fun updateMusicViews(m: MediaInfo) {
         mArt?.let { setArt(it, m) }
-        mTitle?.text = m.title
-        mArtist?.text = m.artist
+        if (mTitle?.text?.toString() != m.title) mTitle?.text = m.title
+        if (mArtist?.text?.toString() != m.artist) mArtist?.text = m.artist
         mPlay?.changeKind(if (m.playing) GlyphView.PAUSE else GlyphView.PLAY)
         mBars?.let {
-            it.color = accent(m.art)
+            val c = accent(m.art)
+            if (it.color != c) it.color = c
             it.updatePlaying(m.playing)
         }
     }
@@ -660,8 +815,12 @@ class IslandController(private val ctx: Context) {
         mBars = null
     }
 
+    /** Same photo dobara set mat karo (flicker se bachne ke liye) */
     private fun setArt(iv: ImageView, m: MediaInfo) {
         val art = m.art
+        val key: Any = art ?: m.pkg
+        if (iv.tag == key) return
+        iv.tag = key
         if (art != null) iv.setImageBitmap(art) else iv.setImageDrawable(appIcon(m.pkg))
     }
 
@@ -677,10 +836,11 @@ class IslandController(private val ctx: Context) {
         null
     }
 
-    /** Album art ka main colour nikaal ke bars ko usi colour me rangta hai */
+    /** Album art ka main colour (bars isi colour me naachti hain) */
     private fun accent(b: Bitmap?): Int {
         if (b == null) return Color.WHITE
-        return try {
+        if (b === accentFor) return accentVal
+        val c = try {
             val src = if (b.config == Bitmap.Config.HARDWARE) b.copy(Bitmap.Config.ARGB_8888, false) else b
             val px = Bitmap.createScaledBitmap(src, 1, 1, true).getPixel(0, 0)
             val hsv = FloatArray(3)
@@ -691,6 +851,9 @@ class IslandController(private val ctx: Context) {
         } catch (e: Exception) {
             Color.WHITE
         }
+        accentFor = b
+        accentVal = c
+        return c
     }
 
     private fun batteryManager() = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager

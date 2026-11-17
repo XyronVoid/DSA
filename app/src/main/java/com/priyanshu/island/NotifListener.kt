@@ -90,7 +90,9 @@ class NotifListener : NotificationListenerService() {
         push()
     }
 
-    private fun push() {
+    private var lastMediaSig: String? = "-"
+
+    private fun push(force: Boolean = false) {
         val c = controller
         val md = c?.metadata
         val info = if (c == null || md == null) {
@@ -106,10 +108,17 @@ class NotifListener : NotificationListenerService() {
             val isPlaying = c.playbackState?.state == PlaybackState.STATE_PLAYING
             if (title.isBlank()) null else MediaInfo(title, artist, art, isPlaying, c.packageName)
         }
+        // Kuch bhi nahi badla to island ko dobara mat chhedo
+        val sig = info?.let { "${it.title}|${it.artist}|${it.playing}|${it.pkg}|${it.art?.width}x${it.art?.height}" }
+        if (!force && sig == lastMediaSig) return
+        lastMediaSig = sig
         IslandService.instance?.controller?.onMedia(info)
     }
 
-    fun refresh() = pick(currentSessions())
+    fun refresh() {
+        pick(currentSessions())
+        push(force = true)
+    }
 
     fun playPause() {
         val c = controller ?: return

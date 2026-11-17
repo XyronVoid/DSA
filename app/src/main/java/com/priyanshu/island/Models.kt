@@ -35,13 +35,12 @@ object Prefs {
     const val NOTIF = "notif"
     const val MUSIC = "music"
     const val CHARGE = "charge"
-    const val Y = "pos_y"
-    const val X = "pos_x"
-    const val IDLE = "idle_size"
+    // Ye sab camera ki auto-position ke upar "adjustment" hain (0 = bilkul camera pe)
+    const val Y = "y_adj"
+    const val X = "x_adj"
+    const val IDLE = "size_adj"
     const val DUR = "duration"
 
-    const val DEF_Y = 4
-    const val DEF_IDLE = 30
     const val DEF_DUR = 5
 
     fun get(c: Context): SharedPreferences =
@@ -51,9 +50,9 @@ object Prefs {
     fun notif(p: SharedPreferences) = p.getBoolean(NOTIF, true)
     fun music(p: SharedPreferences) = p.getBoolean(MUSIC, true)
     fun charge(p: SharedPreferences) = p.getBoolean(CHARGE, true)
-    fun y(p: SharedPreferences) = p.getInt(Y, DEF_Y)
-    fun x(p: SharedPreferences) = p.getInt(X, 0)
-    fun idle(p: SharedPreferences) = p.getInt(IDLE, DEF_IDLE)
+    fun yAdj(p: SharedPreferences) = p.getInt(Y, 0)
+    fun xAdj(p: SharedPreferences) = p.getInt(X, 0)
+    fun sizeAdj(p: SharedPreferences) = p.getInt(IDLE, 0)
     fun dur(p: SharedPreferences) = p.getInt(DUR, DEF_DUR)
 }
 
