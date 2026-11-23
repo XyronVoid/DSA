@@ -1,8 +1,12 @@
-name: Build APK
+name: Build Space Bachao APK
 
 on:
   push:
+    branches: [space-bachao]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,12 +21,33 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Build APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk SpaceBachao.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SpaceBachao-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: SpaceBachao-apk
+          path: SpaceBachao.apk
+
+      - name: Publish release (phone se download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: space-bachao-v1.0.${{ github.run_number }}
+          name: Space Bachao v1.0.${{ github.run_number }}
+          body: Offline photo/video/PDF compressor. SpaceBachao.apk download karke install karo.
+          files: SpaceBachao.apk
+
+      - name: Save APK to space-bachao-apk branch
+        run: |
+          mkdir -p /tmp/apkbranch
+          cp SpaceBachao.apk /tmp/apkbranch/
+          cd /tmp/apkbranch
+          git init -q -b space-bachao-apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SpaceBachao.apk
+          git commit -qm "Space Bachao APK (run ${{ github.run_number }})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" space-bachao-apk
