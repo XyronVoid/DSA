@@ -57,7 +57,7 @@ class MainActivity : Activity(), GradeRenderer.Listener {
     private val ui = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private val presets = mutableListOf<Preset>()
-    private var current = 1
+    private var currentIdx = 1
     private var surfaceTexture: SurfaceTexture? = null
     private var appActive = false
     @Volatile private var mirrored = false
@@ -80,7 +80,7 @@ class MainActivity : Activity(), GradeRenderer.Listener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= 28) {
             val lp = window.attributes
-            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGE
+            lp.layoutInDisplayCutoutMode = 1 // LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGE
             window.attributes = lp
         }
         hideSystemBars()
@@ -340,9 +340,9 @@ class MainActivity : Activity(), GradeRenderer.Listener {
             val cols = v.tag as IntArray
             v.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, cols).apply {
                 cornerRadius = dp(20).toFloat()
-                if (i == current) setStroke(dp(2), Color.WHITE) else setStroke(dp(1), 0x40FFFFFF)
+                if (i == currentIdx) setStroke(dp(2), Color.WHITE) else setStroke(dp(1), 0x40FFFFFF)
             }
-            v.alpha = if (i == current) 1f else 0.8f
+            v.alpha = if (i == currentIdx) 1f else 0.8f
         }
     }
 
@@ -360,11 +360,11 @@ class MainActivity : Activity(), GradeRenderer.Listener {
 
     private fun selectPreset(i: Int, announce: Boolean = true) {
         if (presets.isEmpty()) return
-        current = ((i % presets.size) + presets.size) % presets.size
-        val p = presets[current]
+        currentIdx = ((i % presets.size) + presets.size) % presets.size
+        val p = presets[currentIdx]
         renderer.setLut(p.data, p.vignette)
         styleChips()
-        val chip = chipRow.getChildAt(current)
+        val chip = chipRow.getChildAt(currentIdx)
         if (chip != null) {
             chipScroll.post {
                 chipScroll.smoothScrollTo((chip.left - (chipScroll.width - chip.width) / 2).coerceAtLeast(0), 0)
@@ -392,7 +392,7 @@ class MainActivity : Activity(), GradeRenderer.Listener {
 
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
                 if (abs(velocityX) > abs(velocityY) && abs(velocityX) > 600f) {
-                    selectPreset(if (velocityX < 0) current + 1 else current - 1)
+                    selectPreset(if (velocityX < 0) currentIdx + 1 else currentIdx - 1)
                     return true
                 }
                 return false
@@ -536,9 +536,9 @@ class MainActivity : Activity(), GradeRenderer.Listener {
             .setPositiveButton("Delete") { _, _ ->
                 p.file?.delete()
                 presets.removeAt(i)
-                if (current == i) current = 1 else if (current > i) current--
+                if (currentIdx == i) currentIdx = 1 else if (currentIdx > i) currentIdx--
                 rebuildChips()
-                selectPreset(current, announce = false)
+                selectPreset(currentIdx, announce = false)
             }
             .setNegativeButton("Cancel", null)
             .show()
