@@ -65,4 +65,5 @@ dependencies {
     implementation("androidx.media3:media3-transformer:$media3")
     implementation("androidx.media3:media3-common:$media3")
     implementation("androidx.media3:media3-container:$media3")
+    implementation("androidx.media3:media3-muxer:$media3")
 }
