@@ -1,6 +1,9 @@
 package com.spacebachao.app.data
 
 import android.content.Context
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -15,26 +18,76 @@ class Prefs(context: Context) {
             .getOrDefault(Quality.BALANCED)
         set(value) = sp.edit().putString("quality", value.name).apply()
 
-    /** 0 = Bin off (seedha replace). */
+    /** 0 = Bin off (replace directly). */
     var binDays: Int
         get() = sp.getInt("binDays", 7)
         set(value) = sp.edit().putInt("binDays", value).apply()
 
-    /** Jo files pehle compress ya check ho chuki hain, unhe dobara nahi chhedte. */
+    /** Last known Pro state, so Pro keeps working if Play is briefly unreachable. */
+    var proCached: Boolean
+        get() = sp.getBoolean("proCached", false)
+        set(value) = sp.edit().putBoolean("proCached", value).apply()
+
+    /** Total bytes saved since install. */
+    var totalSaved: Long
+        get() = sp.getLong("totalSaved", 0L)
+        set(value) = sp.edit().putLong("totalSaved", value).apply()
+
+    // ---------- Files already handled ----------
+
+    /** Every file that was compressed or checked (never offered again). */
     @Synchronized
     fun processed(): MutableSet<String> = HashSet(sp.getStringSet("processed", emptySet()) ?: emptySet())
 
+    /** Only files that were actually compressed. */
     @Synchronized
-    fun markProcessed(keys: Collection<String>) {
-        if (keys.isEmpty()) return
-        val set = processed()
-        set.addAll(keys)
-        sp.edit().putStringSet("processed", set).apply()
+    fun saved(): MutableSet<String> = HashSet(sp.getStringSet("saved", emptySet()) ?: emptySet())
+
+    @Synchronized
+    fun markProcessed(keys: Collection<String>) = addTo("processed", keys)
+
+    @Synchronized
+    fun markSaved(keys: Collection<String>) {
+        addTo("processed", keys)
+        addTo("saved", keys)
     }
 
     @Synchronized
-    fun unmarkProcessed(key: String) {
-        val set = processed()
-        if (set.remove(key)) sp.edit().putStringSet("processed", set).apply()
+    fun unmark(key: String) {
+        for (name in arrayOf("processed", "saved")) {
+            val set = HashSet(sp.getStringSet(name, emptySet()) ?: emptySet())
+            if (set.remove(key)) sp.edit().putStringSet(name, set).apply()
+        }
+    }
+
+    private fun addTo(name: String, keys: Collection<String>) {
+        if (keys.isEmpty()) return
+        val set = HashSet(sp.getStringSet(name, emptySet()) ?: emptySet())
+        set.addAll(keys)
+        sp.edit().putStringSet(name, set).apply()
+    }
+
+    // ---------- Free daily limits ----------
+
+    private fun today(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+
+    @Synchronized
+    fun usedToday(kind: Kind): Int {
+        if (sp.getString("quotaDay", null) != today()) return 0
+        return sp.getInt("used_${kind.name}", 0)
+    }
+
+    @Synchronized
+    fun addUsed(kind: Kind) {
+        val day = today()
+        val edit = sp.edit()
+        if (sp.getString("quotaDay", null) != day) {
+            edit.putString("quotaDay", day)
+            Kind.entries.forEach { edit.putInt("used_${it.name}", 0) }
+            edit.putInt("used_${kind.name}", 1)
+        } else {
+            edit.putInt("used_${kind.name}", sp.getInt("used_${kind.name}", 0) + 1)
+        }
+        edit.apply()
     }
 }

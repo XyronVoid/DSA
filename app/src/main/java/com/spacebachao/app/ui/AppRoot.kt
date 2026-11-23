@@ -10,10 +10,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,7 +45,7 @@ fun AppRoot(vm: AppViewModel) {
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris -> vm.addPdfs(uris) }
 
-    // Android 11+: "ye files badalne do?" wala system popup
+    // Android 11+: the system "Allow this app to modify these files?" popup
     LaunchedEffect(state.writeRequest) {
         val uris = state.writeRequest ?: return@LaunchedEffect
         vm.onWriteRequestLaunched()
@@ -68,22 +67,26 @@ fun AppRoot(vm: AppViewModel) {
         vm.clearMessage()
     }
 
-    BackHandler(enabled = screen != Screen.HOME && state.job == null) { screen = Screen.HOME }
-    // Kaam chalte waqt back se app band na ho
-    BackHandler(enabled = state.job?.running == true) { }
-    BackHandler(enabled = state.job != null && state.job?.running == false) { vm.dismissJob() }
+    val job = state.job
+    val paywall = state.paywall
+    BackHandler(enabled = paywall != null) { vm.dismissPaywall() }
+    BackHandler(enabled = paywall == null && screen != Screen.HOME && job == null) { screen = Screen.HOME }
+    // Back must not close the app while compressing
+    BackHandler(enabled = job?.running == true) { }
+    BackHandler(enabled = job != null && !job.running && paywall == null) { vm.dismissJob() }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+    // Surface sets the right text colour for light and dark mode (fixes invisible black text)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        val job = state.job
         when {
             !state.hasPermission -> PermissionScreen(onGrant = { permissionLauncher.launch(Perms.required()) })
+            paywall != null -> ProScreen(state, paywall, vm)
             job != null -> JobScreen(
                 job = job,
-                binDays = state.binDays,
+                binDays = state.effectiveBinDays,
                 binSize = state.binSize,
                 onCancel = vm::cancelJob,
                 onDone = vm::dismissJob,

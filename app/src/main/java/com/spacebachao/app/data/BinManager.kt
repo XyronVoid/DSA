@@ -8,8 +8,8 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Bin = originals ka safe locker (app ke private storage me).
- * Compress ke baad original yahan rehta hai, taaki user restore kar sake.
+ * Bin = safe locker for originals (in the app's private storage).
+ * After compression the original stays here so the user can restore it.
  */
 class BinManager(private val context: Context) {
     private val dir = File(context.filesDir, "bin").apply { mkdirs() }
@@ -30,7 +30,7 @@ class BinManager(private val context: Context) {
 
     fun totalSize(): Long = list().sumOf { it.originalSize }
 
-    /** Original ki copy Bin me banata hai. Index me tab jaata hai jab add() call ho. */
+    /** Copies the original into the Bin. It is listed only after add() is called. */
     fun backup(file: MediaFile, readUri: Uri): BinEntry {
         val id = UUID.randomUUID().toString()
         val dest = File(dir, id)
@@ -47,6 +47,8 @@ class BinManager(private val context: Context) {
             compressedSize = 0,
             createdAt = System.currentTimeMillis(),
             dateTakenMs = file.dateTakenMs,
+            dateModifiedMs = file.dateModifiedMs,
+            path = file.path,
         )
     }
 
@@ -57,7 +59,7 @@ class BinManager(private val context: Context) {
         save(all)
     }
 
-    /** Entry hatao aur uski file delete karo (jagah free). */
+    /** Removes an entry and deletes its file (frees space). */
     @Synchronized
     fun delete(id: String) {
         val all = list().toMutableList()
@@ -67,7 +69,7 @@ class BinManager(private val context: Context) {
         save(all)
     }
 
-    /** Sirf temp backup file hatao (jo index me add nahi hui). */
+    /** Deletes a backup that was never added to the index. */
     fun discardBackup(entry: BinEntry) {
         File(entry.binPath).delete()
     }
@@ -78,12 +80,12 @@ class BinManager(private val context: Context) {
         val freed = all.sumOf { it.originalSize }
         all.forEach { File(it.binPath).delete() }
         save(emptyList())
-        // bachi-khuchi files bhi saaf
+        // clean up leftovers too
         dir.listFiles()?.forEach { if (it.name != indexFile.name) it.delete() }
         return freed
     }
 
-    /** Purani entries apne aap delete. days = 0 matlab Bin off. */
+    /** Deletes expired entries. */
     @Synchronized
     fun purgeExpired(days: Int): Long {
         val all = list()
@@ -94,16 +96,23 @@ class BinManager(private val context: Context) {
         return expired.sumOf { it.originalSize }
     }
 
-    /** Original wapas. Agar gallery se file hi delete ho chuki hai toh nayi file ban jaati hai. */
+    /** Puts the original back. If the file was deleted from the gallery, a new file is created. */
     fun restore(entry: BinEntry): Uri {
         val src = File(entry.binPath)
         val resolver = context.contentResolver
         val uri = Uri.parse(entry.uri)
         val target = if (FileOps.exists(resolver, uri)) {
             FileOps.overwrite(resolver, uri, src)
+            if (entry.kind != Kind.PDF) {
+                FileOps.restoreDates(context, uri, entry.path, entry.dateModifiedMs, entry.dateTakenMs)
+            }
             uri
         } else {
-            FileOps.insertNew(resolver, entry.kind, entry.name, entry.mime, src, entry.dateTakenMs, "Restored")
+            val newUri = FileOps.insertNew(resolver, entry.kind, entry.name, entry.mime, src, entry.dateTakenMs, "Restored")
+            if (entry.kind != Kind.PDF) {
+                FileOps.restoreDates(context, newUri, null, entry.dateModifiedMs, entry.dateTakenMs)
+            }
+            newUri
         }
         delete(entry.id)
         return target
@@ -132,6 +141,8 @@ class BinManager(private val context: Context) {
         put("compressedSize", e.compressedSize)
         put("createdAt", e.createdAt)
         put("dateTakenMs", e.dateTakenMs)
+        put("dateModifiedMs", e.dateModifiedMs)
+        e.path?.let { put("path", it) }
     }
 
     private fun fromJson(o: JSONObject): BinEntry? = try {
@@ -147,6 +158,8 @@ class BinManager(private val context: Context) {
             compressedSize = o.optLong("compressedSize"),
             createdAt = o.optLong("createdAt"),
             dateTakenMs = o.optLong("dateTakenMs"),
+            dateModifiedMs = o.optLong("dateModifiedMs"),
+            path = if (o.has("path")) o.optString("path") else null,
         )
     } catch (e: Exception) {
         null

@@ -18,19 +18,19 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,12 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spacebachao.app.JobState
 import com.spacebachao.app.data.ItemStatus
+import com.spacebachao.app.data.Kind
 import com.spacebachao.app.data.Mode
 import com.spacebachao.app.data.ResultItem
 import com.spacebachao.app.readableSize
@@ -62,13 +64,35 @@ fun JobScreen(
     onDone: () -> Unit,
     onEmptyBin: () -> Unit,
 ) {
-    // Kaam chalte waqt screen band na ho
+    // Keep the screen on while working
     val view = LocalView.current
     DisposableEffect(job.running) {
         view.keepScreenOn = job.running
         onDispose { view.keepScreenOn = false }
     }
     if (job.running) RunningView(job, onCancel) else ResultView(job, binDays, binSize, onDone, onEmptyBin)
+}
+
+@Composable
+private fun CountPill(label: String, value: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
+    Surface(
+        color = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier,
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
@@ -81,24 +105,36 @@ private fun RunningView(job: JobState, onCancel: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("Compress ho raha hai…", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(32.dp))
+        Text(
+            "Compressing ${job.currentKind.label.lowercase()} ${job.index + 1} of ${job.total}",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(28.dp))
         Box(contentAlignment = Alignment.Center) {
             val p = job.currentProgress
             if (p >= 0f) {
                 CircularProgressIndicator(
                     progress = { p },
-                    modifier = Modifier.size(170.dp),
-                    strokeWidth = 10.dp,
+                    modifier = Modifier.size(180.dp),
+                    strokeWidth = 12.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 )
-                Text("${(p * 100).toInt()}%", style = MaterialTheme.typography.headlineMedium)
+                Text("${(p * 100).toInt()}%", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface)
             } else {
-                CircularProgressIndicator(modifier = Modifier.size(170.dp), strokeWidth = 10.dp)
-                Text("${job.index + 1}/${job.total}", style = MaterialTheme.typography.headlineMedium)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(180.dp),
+                    strokeWidth = 12.dp,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                )
+                Text(
+                    "${job.index + 1}/${job.total}",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
-        Spacer(Modifier.height(28.dp))
-        Text("File ${job.index + 1} / ${job.total}", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(20.dp))
         Text(
             job.currentName,
             style = MaterialTheme.typography.bodyMedium,
@@ -106,26 +142,37 @@ private fun RunningView(job: JobState, onCancel: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            CountPill("Done", "${job.doneCount}", Modifier.weight(1f))
+            CountPill("Left", "${job.leftCount}", Modifier.weight(1f))
+            CountPill("Saved", job.savedSoFar.readableSize(), Modifier.weight(1.4f), highlight = true)
+        }
+        Spacer(Modifier.height(14.dp))
         LinearProgressIndicator(
-            progress = { if (job.total > 0) job.index.toFloat() / job.total else 0f },
-            modifier = Modifier.fillMaxWidth(),
+            progress = { if (job.total > 0) job.doneCount.toFloat() / job.total else 0f },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(CircleShape),
         )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Ab tak bacha: ${job.savedSoFar.readableSize()}",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        Spacer(Modifier.height(10.dp))
+        // Per type: "Videos 2/5 · Photos 7/20"
+        val perKind = listOf(Kind.VIDEO, Kind.IMAGE, Kind.PDF)
+            .filter { (job.totals[it] ?: 0) > 0 }
+            .joinToString("  ·  ") { "${it.plural} ${job.doneOf(it)}/${job.totals[it]}" }
+        if (perKind.isNotEmpty()) {
+            Text(perKind, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Spacer(Modifier.height(24.dp))
         Text(
-            "App khula rakho. Sab kuch isi phone pe ho raha hai, kuch bhi upload nahi ho raha.",
+            "Keep the app open. Everything happens on this phone, nothing is uploaded.",
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(24.dp))
-        OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(14.dp)) { Text("Ruko (Cancel)") }
+        Spacer(Modifier.height(20.dp))
+        OutlinedButton(onClick = onCancel, shape = CircleShape) { Text("Stop") }
     }
 }
 
@@ -141,7 +188,7 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
             .fillMaxSize()
             .systemBarsPadding(),
         contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -152,51 +199,52 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
                     tint = SuccessGreen,
                     modifier = Modifier.size(56.dp),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     job.savedSoFar.readableSize(),
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    if (job.cancelled) "bachaya (beech me roka)" else "bachaya",
+                    if (job.cancelled) "saved (stopped early)" else "saved",
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "$savedCount compress · $skippedCount skip · $failedCount fail",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    CountPill("Compressed", "$savedCount", Modifier.weight(1f), highlight = true)
+                    CountPill("Skipped", "$skippedCount", Modifier.weight(1f))
+                    CountPill("Failed", "$failedCount", Modifier.weight(1f))
+                }
                 Spacer(Modifier.height(8.dp))
             }
         }
 
         if (job.mode == Mode.REPLACE && job.binUsed && savedCount > 0 && binSize > 0) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(16.dp),
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.large,
                 ) {
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(18.dp)) {
                         Text(
-                            "Originals Bin me safe hain ($binDays din)",
+                            "Originals are safe in the Bin ($binDays days)",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            "Pehle gallery me check kar lo. Jagah tab free hogi jab Bin khali hoga " +
-                                "(ya $binDays din baad apne aap).",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            "Check your gallery first. The space is freed when the Bin is emptied " +
+                                "(or automatically after $binDays days).",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                         Spacer(Modifier.height(12.dp))
-                        Button(
+                        FilledTonalButton(
                             onClick = { confirmEmpty = true },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = CircleShape,
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Bin khali karo · ${binSize.readableSize()} free karo") }
+                        ) { Text("Empty Bin · free ${binSize.readableSize()}") }
                     }
                 }
             }
@@ -209,19 +257,19 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
                 onClick = onDone,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .padding(top = 8.dp)
+                    .height(56.dp)
                     .navigationBarsPadding(),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text("Done") }
+                shape = CircleShape,
+            ) { Text("Done", style = MaterialTheme.typography.titleMedium) }
         }
     }
 
     if (confirmEmpty) {
         ConfirmDialog(
-            title = "Bin khali karein?",
-            text = "Originals hamesha ke liye delete ho jayenge aur ${binSize.readableSize()} jagah free hogi. " +
-                "Ye wapas nahi aayenge.",
-            confirmLabel = "Haan, delete karo",
+            title = "Empty the Bin?",
+            text = "Originals will be deleted forever and ${binSize.readableSize()} will be freed. This can't be undone.",
+            confirmLabel = "Delete",
             onConfirm = onEmptyBin,
             onDismiss = { confirmEmpty = false },
         )
@@ -235,15 +283,21 @@ private fun ResultRow(r: ResultItem) {
         ItemStatus.SKIPPED -> Icons.Filled.Info to WarnAmber
         ItemStatus.FAILED -> Icons.Filled.Error to ErrorRed
     }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = RoundedCornerShape(14.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(r.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    r.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 val sub = if (r.status == ItemStatus.SAVED) {
                     val pct = if (r.before > 0) ((r.before - r.after) * 100 / r.before) else 0
                     "${r.before.readableSize()} → ${r.after.readableSize()}  (−$pct%)"

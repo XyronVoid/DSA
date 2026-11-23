@@ -1,5 +1,6 @@
 package com.spacebachao.app
 
+import android.app.Activity
 import android.app.Application
 import android.content.ContentUris
 import android.content.Context
@@ -11,6 +12,7 @@ import android.os.StatFs
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.spacebachao.app.billing.ProBilling
 import com.spacebachao.app.data.BinEntry
 import com.spacebachao.app.data.BinManager
 import com.spacebachao.app.data.FileOps
@@ -41,19 +43,32 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
+const val FREE_VIDEOS_PER_DAY = 3
+const val FREE_PDFS_PER_DAY = 2
+const val FREE_BIN_DAYS = 7
+
 data class JobState(
     val running: Boolean = true,
     val total: Int = 0,
     val index: Int = 0,
     val currentName: String = "",
-    /** 0..1, ya -1 jab progress pata nahi */
+    val currentKind: Kind = Kind.IMAGE,
+    /** 0..1, or -1 when unknown */
     val currentProgress: Float = -1f,
     val savedSoFar: Long = 0,
     val results: List<ResultItem> = emptyList(),
     val cancelled: Boolean = false,
     val mode: Mode = Mode.REPLACE,
     val binUsed: Boolean = false,
-)
+    val totals: Map<Kind, Int> = emptyMap(),
+) {
+    val doneCount: Int get() = results.size
+    val leftCount: Int get() = (total - results.size).coerceAtLeast(0)
+    fun doneOf(kind: Kind): Int = results.count { it.kind == kind }
+}
+
+/** reason = null when the user opened the Pro screen themselves. */
+data class Paywall(val reason: String?, val freeItems: List<MediaFile> = emptyList())
 
 data class UiState(
     val hasPermission: Boolean = false,
@@ -66,11 +81,16 @@ data class UiState(
     val tab: Kind = Kind.IMAGE,
     val mode: Mode = Mode.REPLACE,
     val quality: Quality = Quality.BALANCED,
-    val binDays: Int = 7,
+    val binDays: Int = FREE_BIN_DAYS,
     val binEntries: List<BinEntry> = emptyList(),
     val storageFree: Long = 0,
     val storageTotal: Long = 0,
-    val hiddenCount: Int = 0,
+    /** Files compressed earlier, per type (shown as "done"). */
+    val doneCount: Map<Kind, Int> = emptyMap(),
+    val totalSaved: Long = 0,
+    val isPro: Boolean = false,
+    val proPrice: String? = null,
+    val paywall: Paywall? = null,
     val job: JobState? = null,
     val writeRequest: List<Uri>? = null,
     val message: String? = null,
@@ -81,6 +101,12 @@ data class UiState(
         get() = selectedFiles.sumOf { it.size }
     val binSize: Long
         get() = binEntries.sumOf { it.originalSize }
+
+    /** Settings the user can actually use on their plan. */
+    val effectiveQuality: Quality
+        get() = if (!isPro && quality.proOnly) Quality.BALANCED else quality
+    val effectiveBinDays: Int
+        get() = if (!isPro && binDays > FREE_BIN_DAYS) FREE_BIN_DAYS else binDays
 
     fun listFor(kind: Kind): List<MediaFile> = when (kind) {
         Kind.IMAGE -> images
@@ -101,26 +127,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val bin = BinManager(app)
 
     private val _state = MutableStateFlow(
-        UiState(mode = prefs.mode, quality = prefs.quality, binDays = prefs.binDays)
+        UiState(
+            mode = prefs.mode,
+            quality = prefs.quality,
+            binDays = prefs.binDays,
+            isPro = prefs.proCached,
+            totalSaved = prefs.totalSaved,
+        )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var job: Job? = null
     private var pendingAction: PendingAction? = null
 
+    private val billing = ProBilling(app) { isPro, price ->
+        if (isPro != null) prefs.proCached = isPro
+        _state.update { it.copy(isPro = isPro ?: it.isPro, proPrice = price ?: it.proPrice) }
+        if (isPro == true && _state.value.paywall != null) {
+            _state.update { it.copy(paywall = null, message = "Welcome to Pro! Everything is unlocked.") }
+        }
+    }
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             ctx.cacheDir.listFiles()?.forEach { if (it.name.startsWith("work_")) it.delete() }
-            val days = prefs.binDays
-            bin.purgeExpired(if (days == 0) 7 else days)
+            bin.purgeExpired(_state.value.effectiveBinDays.takeIf { it > 0 } ?: FREE_BIN_DAYS)
             refreshBinAndStorage()
         }
+        billing.connect()
         checkPermissionAndLoad()
     }
 
     // ---------- Permission + loading ----------
 
     fun onResume() {
+        billing.connect()
         if (_state.value.job?.running == true) return
         checkPermissionAndLoad()
         viewModelScope.launch(Dispatchers.IO) { refreshBinAndStorage() }
@@ -140,18 +181,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(loading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             val processed = prefs.processed()
+            val saved = prefs.saved()
             val allImages = runCatching { MediaScanner.scan(ctx, Kind.IMAGE) }.getOrDefault(emptyList())
             val allVideos = runCatching { MediaScanner.scan(ctx, Kind.VIDEO) }.getOrDefault(emptyList())
             val images = allImages.filter { it.key !in processed }
             val videos = allVideos.filter { it.key !in processed }
-            val hidden = (allImages.size - images.size) + (allVideos.size - videos.size)
+            val done = mapOf(
+                Kind.IMAGE to allImages.count { it.key in saved },
+                Kind.VIDEO to allVideos.count { it.key in saved },
+                Kind.PDF to saved.count { it.startsWith("content://") },
+            )
             _state.update { s ->
                 val valid = (images + videos + s.pdfs).map { it.key }.toHashSet()
                 s.copy(
                     loading = false,
                     images = images,
                     videos = videos,
-                    hiddenCount = hidden,
+                    doneCount = done,
                     selected = s.selected.filter { it in valid }.toSet(),
                 )
             }
@@ -188,11 +234,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setQuality(quality: Quality) {
+        if (quality.proOnly && !_state.value.isPro) {
+            openPro()
+            return
+        }
         prefs.quality = quality
         _state.update { it.copy(quality = quality) }
     }
 
     fun setBinDays(days: Int) {
+        if (days > FREE_BIN_DAYS && !_state.value.isPro) {
+            openPro()
+            return
+        }
         prefs.binDays = days
         _state.update { it.copy(binDays = days) }
     }
@@ -200,6 +254,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     private fun toast(msg: String) = _state.update { it.copy(message = msg) }
+
+    // ---------- Pro ----------
+
+    fun openPro() = _state.update { it.copy(paywall = Paywall(reason = null)) }
+
+    fun dismissPaywall() = _state.update { it.copy(paywall = null) }
+
+    fun buyPro(activity: Activity) {
+        if (_state.value.isPro) return
+        if (!billing.buy(activity)) {
+            billing.connect()
+            toast("Pro can be bought when the app is installed from Google Play.")
+        }
+    }
+
+    fun restorePurchase() {
+        billing.connect()
+        billing.refresh()
+        toast("Checking your purchases…")
+    }
+
+    /** From the paywall: compress only what the free plan allows today. */
+    fun continueFree() {
+        val items = _state.value.paywall?.freeItems.orEmpty()
+        _state.update { it.copy(paywall = null) }
+        if (items.isEmpty()) {
+            toast("Free limit reached for today. Try again tomorrow or get Pro.")
+        } else {
+            launchCompress(items)
+        }
+    }
+
+    fun freeLeft(kind: Kind): Int = when (kind) {
+        Kind.VIDEO -> (FREE_VIDEOS_PER_DAY - prefs.usedToday(Kind.VIDEO)).coerceAtLeast(0)
+        Kind.PDF -> (FREE_PDFS_PER_DAY - prefs.usedToday(Kind.PDF)).coerceAtLeast(0)
+        Kind.IMAGE -> Int.MAX_VALUE
+    }
 
     // ---------- PDF ----------
 
@@ -222,7 +313,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val fresh = added.filter { it.key !in existing }
                 s.copy(pdfs = s.pdfs + fresh, selected = s.selected + fresh.map { it.key }, tab = Kind.PDF)
             }
-            if (already > 0) toast("$already PDF pehle hi compress ho chuke hain")
+            if (already > 0) toast("$already PDF(s) were already compressed")
         }
     }
 
@@ -250,11 +341,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (items.isEmpty()) return
         if (items.size > MAX_BATCH) {
             items = items.take(MAX_BATCH)
-            toast("Ek baar me $MAX_BATCH files tak. Baaki agli baar.")
+            toast("Up to $MAX_BATCH files at a time. The rest next time.")
         }
+
+        if (!s.isPro) {
+            val videos = items.filter { it.kind == Kind.VIDEO }
+            val pdfs = items.filter { it.kind == Kind.PDF }
+            val videosLeft = freeLeft(Kind.VIDEO)
+            val pdfsLeft = freeLeft(Kind.PDF)
+            if (videos.size > videosLeft || pdfs.size > pdfsLeft) {
+                val allowed = items.filter { it.kind == Kind.IMAGE } + videos.take(videosLeft) + pdfs.take(pdfsLeft)
+                val reason = "Free plan: $FREE_VIDEOS_PER_DAY videos and $FREE_PDFS_PER_DAY PDFs per day. " +
+                    "Left today: $videosLeft videos, $pdfsLeft PDFs. Photos are always unlimited."
+                _state.update { it.copy(paywall = Paywall(reason, allowed)) }
+                return
+            }
+        }
+        launchCompress(items)
+    }
+
+    private fun launchCompress(items: List<MediaFile>) {
+        val s = _state.value
         val mediaUris = items.filter { it.kind != Kind.PDF }.map { it.uri }
         if (s.mode == Mode.REPLACE && Build.VERSION.SDK_INT >= 30 && mediaUris.isNotEmpty()) {
-            // Android poochega: "Space Bachao ko ye files badalne do?" (ek hi popup)
+            // Android shows one system popup: "Allow Space Bachao to modify these files?"
             pendingAction = PendingAction.Compress(items)
             _state.update { it.copy(writeRequest = mediaUris) }
         } else {
@@ -262,7 +372,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Popup dikh gaya, ab dobara mat dikhao (rotation pe bhi). */
+    /** The popup is on screen; don't show it again (e.g. on rotation). */
     fun onWriteRequestLaunched() = _state.update { it.copy(writeRequest = null) }
 
     fun onWriteRequestResult(granted: Boolean) {
@@ -271,7 +381,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         pendingAction = null
         if (action == null) return
         if (!granted) {
-            toast("Permission nahi mili, kuch nahi badla")
+            toast("Permission not given. Nothing was changed.")
             return
         }
         when (action) {
@@ -283,11 +393,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun runCompress(items: List<MediaFile>) {
         val s = _state.value
         val mode = s.mode
-        val quality = s.quality
-        val useBin = mode == Mode.REPLACE && s.binDays > 0
+        val quality = s.effectiveQuality
+        val useBin = mode == Mode.REPLACE && s.effectiveBinDays > 0
         val hasLocation = s.hasLocation
+        val totals = items.groupingBy { it.kind }.eachCount()
 
-        _state.update { it.copy(job = JobState(total = items.size, mode = mode, binUsed = useBin)) }
+        _state.update {
+            it.copy(job = JobState(total = items.size, mode = mode, binUsed = useBin, totals = totals))
+        }
 
         val batchKeys = items.map { it.key }.toSet()
         job = viewModelScope.launch(Dispatchers.IO) {
@@ -297,7 +410,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 for ((i, item) in items.withIndex()) {
                     ensureActive()
                     _state.update { st ->
-                        st.copy(job = st.job?.copy(index = i, currentName = item.name, currentProgress = -1f))
+                        st.copy(
+                            job = st.job?.copy(
+                                index = i,
+                                currentName = item.name,
+                                currentKind = item.kind,
+                                currentProgress = -1f,
+                            )
+                        )
                     }
                     val r = try {
                         processOne(item, mode, quality, useBin, hasLocation) { p ->
@@ -314,10 +434,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                     results += r
-                    if (r.status == ItemStatus.SAVED) saved += (r.before - r.after)
+                    if (r.status == ItemStatus.SAVED) {
+                        val gained = r.before - r.after
+                        saved += gained
+                        prefs.totalSaved = prefs.totalSaved + gained
+                    }
                     val snapshot = results.toList()
                     val savedNow = saved
-                    _state.update { st -> st.copy(job = st.job?.copy(savedSoFar = savedNow, results = snapshot)) }
+                    val lifetime = prefs.totalSaved
+                    _state.update { st ->
+                        st.copy(job = st.job?.copy(savedSoFar = savedNow, results = snapshot), totalSaved = lifetime)
+                    }
                 }
             } finally {
                 val cancelled = !isActive
@@ -349,7 +476,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onProgress: (Float) -> Unit,
     ): ResultItem {
         val resolver = ctx.contentResolver
-        // Location ke saath original padhna (warna Android GPS info chhupa deta hai)
+        // Read the original WITH location (otherwise Android hides GPS info)
         val readUri = if (item.kind != Kind.PDF && hasLocation) MediaStore.setRequireOriginal(item.uri) else item.uri
         val ext = when (item.kind) {
             Kind.IMAGE -> "jpg"
@@ -360,7 +487,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         try {
             val need = item.size * (if (useBin) 2 else 1) + 50L * 1024 * 1024
             if (ctx.filesDir.usableSpace < need) {
-                throw SkipException("Phone me jagah kam hai (${need.readableSize()} chahiye)", permanent = false)
+                throw SkipException("Not enough free space (${need.readableSize()} needed)", permanent = false)
             }
 
             when (item.kind) {
@@ -376,14 +503,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 Kind.PDF -> 0.75
             }
             if (newSize <= 0L || newSize > item.size * maxRatio) {
-                throw SkipException("Isme zyada bachat nahi thi, original waisa hi rakha")
+                throw SkipException("Saving would be too small, original kept")
             }
 
             withContext(NonCancellable) {
                 when (mode) {
                     Mode.REPLACE -> {
                         replaceOriginal(item, readUri, tmp, useBin)
-                        prefs.markProcessed(listOf(item.key))
+                        prefs.markSaved(listOf(item.key))
                     }
                     Mode.KEEP_BOTH -> {
                         val mime = when (item.kind) {
@@ -394,13 +521,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         val newUri = FileOps.insertNew(
                             resolver, item.kind, FileOps.compressedName(item.name, ext), mime, tmp, item.dateTakenMs
                         )
-                        val keys = mutableListOf(item.key)
                         if (item.kind != Kind.PDF) {
-                            keys += MediaFile.keyFor(item.kind, ContentUris.parseId(newUri), newUri)
+                            FileOps.restoreDates(ctx, newUri, null, item.dateModifiedMs, item.dateTakenMs)
+                            prefs.markProcessed(listOf(MediaFile.keyFor(item.kind, ContentUris.parseId(newUri), newUri)))
                         }
-                        prefs.markProcessed(keys)
+                        prefs.markSaved(listOf(item.key))
                     }
                 }
+                if (item.kind == Kind.VIDEO || item.kind == Kind.PDF) prefs.addUsed(item.kind)
             }
             return ResultItem(item.name, item.kind, item.size, newSize, ItemStatus.SAVED)
         } catch (e: SkipException) {
@@ -413,9 +541,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Safe replace:
-     * 1. Original ki copy Bin me
-     * 2. Compressed data original file me
-     * 3. Check: poora likha gaya? Nahi toh original wapas
+     * 1. copy of the original into the Bin
+     * 2. compressed data written into the original file
+     * 3. check it was fully written, otherwise put the original back
+     * 4. put the original dates back
      */
     private fun replaceOriginal(item: MediaFile, readUri: Uri, tmp: File, useBin: Boolean) {
         val resolver = ctx.contentResolver
@@ -423,7 +552,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         try {
             FileOps.overwrite(resolver, item.uri, tmp)
             val written = FileOps.sizeOf(resolver, item.uri)
-            if (written >= 0 && written != tmp.length()) throw IOException("File poori nahi likhi gayi")
+            if (written >= 0 && written != tmp.length()) throw IOException("File was not fully written")
         } catch (e: Exception) {
             if (backup != null) {
                 runCatching { FileOps.overwrite(resolver, item.uri, File(backup.binPath)) }
@@ -432,6 +561,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             throw e
         }
         backup?.let { bin.add(it.copy(compressedSize = tmp.length())) }
+        if (item.kind != Kind.PDF) {
+            FileOps.restoreDates(ctx, item.uri, item.path, item.dateModifiedMs, item.dateTakenMs)
+        }
     }
 
     fun cancelJob() {
@@ -464,10 +596,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 bin.restore(entry)
-                prefs.unmarkProcessed(entry.key)
-                toast("${entry.name} wapas original ho gayi")
+                prefs.unmark(entry.key)
+                val gained = (entry.originalSize - entry.compressedSize).coerceAtLeast(0)
+                prefs.totalSaved = (prefs.totalSaved - gained).coerceAtLeast(0)
+                _state.update { it.copy(totalSaved = prefs.totalSaved) }
+                toast("${entry.name} is back to the original")
             } catch (e: Exception) {
-                toast("Restore nahi ho paaya: ${e.message ?: "error"}")
+                toast("Could not restore: ${e.message ?: "error"}")
             }
             refreshBinAndStorage()
             refresh()
@@ -478,7 +613,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             bin.delete(entry.id)
             refreshBinAndStorage()
-            toast("${entry.originalSize.readableSize()} free ho gaya")
+            toast("${entry.originalSize.readableSize()} freed")
         }
     }
 
@@ -486,7 +621,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val freed = bin.clear()
             refreshBinAndStorage()
-            toast("${freed.readableSize()} free ho gaya 🎉")
+            toast("${freed.readableSize()} freed 🎉")
         }
     }
 

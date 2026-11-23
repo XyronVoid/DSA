@@ -19,18 +19,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -80,7 +83,7 @@ fun Thumbnail(uri: Uri, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant))
+        Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest))
     }
 }
 
@@ -108,25 +111,34 @@ fun ConfirmDialog(
                 onDismiss()
             }) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Rehne do") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
 @Composable
-fun PrivacyLine(modifier: Modifier = Modifier) {
+fun PrivacyLine(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Filled.Lock,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.size(6.dp))
+        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = color)
+        Spacer(Modifier.width(6.dp))
         Text(
-            "100% offline · Is app me internet permission hi nahi hai",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            "100% offline · No internet permission",
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
         )
+    }
+}
+
+@Composable
+fun Bullet(text: String, color: Color = MaterialTheme.colorScheme.onSurface) {
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 5.dp)) {
+        Icon(
+            Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = color)
     }
 }
 
@@ -136,61 +148,62 @@ fun PermissionScreen(onGrant: () -> Unit) {
         Modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .padding(24.dp),
+            .padding(horizontal = 28.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             Modifier
-                .size(88.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .background(MaterialTheme.colorScheme.primary),
+                .size(80.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(28.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Filled.Lock,
+                Icons.Filled.Shield,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(40.dp),
             )
         }
-        Spacer(Modifier.height(24.dp))
-        Text("Space Bachao", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(28.dp))
         Text(
-            "Photos, videos aur PDF ko chhota karke phone me jagah banao. Quality aankh se same.",
+            "Free up space.\nKeep every memory.",
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Space Bachao shrinks your photos, videos and scanned PDFs right on your phone. " +
+                "They look the same, they just take less space.",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(24.dp))
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    "Tumhari files phone se bahar nahi jaati",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "• Sab kuch isi phone pe hota hai\n" +
-                        "• App me internet permission hi nahi hai\n" +
-                        "• Location permission sirf isliye taaki photo ki location info na mite",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+            Column(Modifier.padding(20.dp)) {
+                Bullet("Nothing is uploaded. The app has no internet permission.")
+                Bullet("Originals stay in the Bin so you can restore them.")
+                Bullet("Dates and locations are kept, your gallery stays in order.")
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(32.dp))
         Button(
             onClick = onGrant,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-        ) { Text("Photos & videos ki permission do") }
+                .height(56.dp),
+            shape = CircleShape,
+        ) { Text("Allow access to photos & videos", style = MaterialTheme.typography.titleMedium) }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Location access is only used so photo locations aren't lost.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

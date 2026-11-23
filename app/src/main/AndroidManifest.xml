@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Photos / videos padhne ke liye -->
+    <!-- Read photos / videos -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission
@@ -12,20 +12,18 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29"
         tools:ignore="ScopedStorage" />
-    <!-- Photo/video ki location info (GPS) compress ke baad bhi bachi rahe -->
+    <!-- Keep photo/video location info (GPS) after compression -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
-    <!-- TRUST: Is app me internet permission hai hi nahi.
-         Agar koi library chupke se add kare, toh bhi yahan se hata di jaati hai. -->
+    <!-- TRUST: the app has NO internet permission, so files can never leave the phone.
+         Even if a library adds it, it is removed here. Payments go through the Play Store app. -->
     <uses-permission
         android:name="android.permission.INTERNET"
-        tools:node="remove" />
-    <uses-permission
-        android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />
 
     <application
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:largeHeap="true"

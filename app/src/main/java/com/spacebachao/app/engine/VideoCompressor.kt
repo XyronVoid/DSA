@@ -30,14 +30,14 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Video ko H.265 (HEVC) me convert karta hai, phone ke hardware encoder se.
- * Resolution aur FPS same rehte hain, sirf bitrate kam hota hai.
- * Original date aur location MP4 ke andar wapas likhe jaate hain, taaki gallery ka order na bigde.
+ * Converts a video to H.265 (HEVC) with the phone's hardware encoder.
+ * Resolution and FPS stay the same, only the bitrate goes down.
+ * The original date and location are written back into the MP4 so the gallery order stays the same.
  */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 object VideoCompressor {
 
-    /** 1904-01-01 se 1970-01-01 tak ke seconds (MP4 ka time yahin se ginta hai). */
+    /** Seconds from 1904-01-01 to 1970-01-01 (MP4 time starts in 1904). */
     private const val MP4_EPOCH_OFFSET_S = 2_082_844_800L
 
     private data class Probe(
@@ -64,7 +64,7 @@ object VideoCompressor {
         onProgress: (Float) -> Unit,
     ) {
         val probe = withContext(Dispatchers.IO) { probe(context, readUri) }
-        if (!probe.hasVideo) throw SkipException("Isme video track nahi hai")
+        if (!probe.hasVideo) throw SkipException("No video track in this file")
 
         val durationMs = if (probe.durationMs > 0) probe.durationMs else file.durationMs
         val originalBitrate = when {
@@ -72,11 +72,11 @@ object VideoCompressor {
             durationMs > 0 -> file.size * 8_000L / durationMs
             else -> 0L
         }
-        if (originalBitrate <= 0) throw SkipException("Video ki info nahi mili")
+        if (originalBitrate <= 0) throw SkipException("Could not read video info")
 
         val useHevc = hevcSupported
         val target = targetBitrate(originalBitrate, probe.width, probe.height, useHevc, quality)
-            ?: throw SkipException("Video pehle se compressed hai")
+            ?: throw SkipException("Already compressed, nothing to gain")
 
         val createdMs = if (file.dateTakenMs > 0) file.dateTakenMs else file.dateModifiedMs
         val lat = probe.latitude
@@ -97,7 +97,7 @@ object VideoCompressor {
                     }
                 }
 
-                // Original ki date + location naye MP4 me
+                // Original date + location into the new MP4
                 val muxerFactory = InAppMuxer.Factory.Builder()
                     .setMetadataProvider { entries ->
                         if (createdMs > 0) {
@@ -137,7 +137,7 @@ object VideoCompressor {
                             handler.removeCallbacks(poll)
                             if (cont.isActive) {
                                 cont.resumeWithException(
-                                    SkipException("Ye video compress nahi ho paaya (code ${exportException.errorCode})")
+                                    SkipException("This video could not be compressed (code ${exportException.errorCode})")
                                 )
                             }
                         }
@@ -159,7 +159,7 @@ object VideoCompressor {
         }
     }
 
-    /** null = compress karne layak nahi (pehle se kam bitrate). */
+    /** null = not worth compressing (bitrate already low). */
     private fun targetBitrate(original: Long, width: Int, height: Int, hevc: Boolean, q: Quality): Int? {
         val pixels = width.toLong() * height
         val floor = when {
@@ -191,13 +191,13 @@ object VideoCompressor {
                 longitude = lon,
             )
         } catch (e: Exception) {
-            throw SkipException("Video padh nahi paaye")
+            throw SkipException("Could not read this video")
         } finally {
             runCatching { r.release() }
         }
     }
 
-    /** "+28.6139+077.2090/" jaisi location string ko lat/lon me badalta hai. */
+    /** Parses a location string like "+28.6139+077.2090/" into lat/lon. */
     private fun parseIso6709(value: String?): Pair<Float?, Float?> {
         if (value.isNullOrBlank()) return null to null
         val m = Regex("""([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)""").find(value) ?: return null to null

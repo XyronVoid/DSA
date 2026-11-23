@@ -2,6 +2,8 @@ package com.spacebachao.app.data
 
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -17,11 +19,11 @@ object FileOps {
     const val FOLDER = "SpaceBachao"
 
     fun copyUriToFile(resolver: ContentResolver, uri: Uri, dest: File) {
-        val input = resolver.openInputStream(uri) ?: throw IOException("File khul nahi rahi")
+        val input = resolver.openInputStream(uri) ?: throw IOException("Could not open the file")
         input.use { inp -> FileOutputStream(dest).use { inp.copyTo(it, BUFFER) } }
     }
 
-    /** Original file ke andar naya data likhta hai. "wt" = pehle purana data poora hatao. */
+    /** Writes new data into the original file. "wt" = truncate the old data first. */
     fun overwrite(resolver: ContentResolver, uri: Uri, src: File) {
         val out: OutputStream = openTruncating(resolver, uri)
         out.use { o -> FileInputStream(src).use { it.copyTo(o, BUFFER) } }
@@ -34,10 +36,10 @@ object FileOps {
             } catch (e: SecurityException) {
                 throw e
             } catch (e: Exception) {
-                // agla mode try karo
+                // try the next mode
             }
         }
-        throw IOException("File me likh nahi paaye")
+        throw IOException("Could not write to the file")
     }
 
     fun sizeOf(resolver: ContentResolver, uri: Uri): Long = try {
@@ -52,7 +54,7 @@ object FileOps {
         false
     }
 
-    /** Nayi file banata hai (Pictures/SpaceBachao, Movies/SpaceBachao ya Download/SpaceBachao). */
+    /** Creates a new file in Pictures/SpaceBachao, Movies/SpaceBachao or Download/SpaceBachao. */
     fun insertNew(
         resolver: ContentResolver,
         kind: Kind,
@@ -75,9 +77,9 @@ object FileOps {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
             if (kind != Kind.PDF && dateTakenMs > 0) put(MediaStore.MediaColumns.DATE_TAKEN, dateTakenMs)
         }
-        val uri = resolver.insert(collection, values) ?: throw IOException("Nayi file nahi bani")
+        val uri = resolver.insert(collection, values) ?: throw IOException("Could not create the new file")
         try {
-            val out = resolver.openOutputStream(uri, "w") ?: throw IOException("Nayi file me likh nahi paaye")
+            val out = resolver.openOutputStream(uri, "w") ?: throw IOException("Could not write the new file")
             out.use { o -> FileInputStream(src).use { it.copyTo(o, BUFFER) } }
             val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             resolver.update(uri, done, null, null)
@@ -86,6 +88,42 @@ object FileOps {
             throw e
         }
         return uri
+    }
+
+    /**
+     * Puts the original dates back after a file was rewritten, so the gallery keeps it in place:
+     * 1. file "last modified" time = original
+     * 2. ask Android to re-read the file (date comes from EXIF / MP4 + last modified)
+     * 3. also set DATE_TAKEN directly where Android allows it
+     */
+    fun restoreDates(context: Context, uri: Uri, path: String?, modifiedMs: Long, takenMs: Long) {
+        val resolver = context.contentResolver
+        val realPath = path ?: queryPath(resolver, uri)
+        if (realPath != null && modifiedMs > 0) {
+            runCatching { File(realPath).setLastModified(modifiedMs) }
+        }
+        val setTaken: () -> Unit = {
+            if (takenMs > 0) {
+                runCatching {
+                    val v = ContentValues().apply { put(MediaStore.MediaColumns.DATE_TAKEN, takenMs) }
+                    resolver.update(uri, v, null, null)
+                }
+            }
+        }
+        if (realPath != null) {
+            MediaScannerConnection.scanFile(context, arrayOf(realPath), null) { _, _ -> setTaken() }
+        } else {
+            setTaken()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    fun queryPath(resolver: ContentResolver, uri: Uri): String? = try {
+        resolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null
+        }
+    } catch (e: Exception) {
+        null
     }
 
     fun compressedName(original: String, newExt: String): String {

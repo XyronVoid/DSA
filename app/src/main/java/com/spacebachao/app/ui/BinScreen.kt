@@ -15,20 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -45,20 +42,20 @@ import com.spacebachao.app.UiState
 import com.spacebachao.app.data.BinEntry
 import com.spacebachao.app.readableSize
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
     var confirmAll by remember { mutableStateOf(false) }
     var confirmOne by remember { mutableStateOf<BinEntry?>(null) }
-    val keepDays = if (state.binDays > 0) state.binDays else 7
+    val keepDays = if (state.effectiveBinDays > 0) state.effectiveBinDays else 7
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
                 title = { Text("Bin") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wapas")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
@@ -72,11 +69,11 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Bin khali hai", style = MaterialTheme.typography.titleMedium)
+                    Text("The Bin is empty", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Compress ke baad originals yahan aate hain",
-                        style = MaterialTheme.typography.bodySmall,
+                        "Originals appear here after you compress in Replace mode",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -89,33 +86,39 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(18.dp),
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.extraLarge,
                 ) {
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(20.dp)) {
                         Text(
-                            "${state.binEntries.size} originals · ${state.binSize.readableSize()}",
-                            style = MaterialTheme.typography.titleLarge,
+                            state.binSize.readableSize(),
+                            style = MaterialTheme.typography.displaySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
-                        Spacer(Modifier.height(4.dp))
                         Text(
-                            "Ye $keepDays din baad apne aap delete ho jayenge. Koi file pasand nahi aayi toh Restore dabao.",
-                            style = MaterialTheme.typography.bodySmall,
+                            "${state.binEntries.size} originals waiting",
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "They are deleted automatically after $keepDays days. Not happy with a file? Tap restore.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Spacer(Modifier.height(14.dp))
                         Button(
                             onClick = { confirmAll = true },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                        ) { Text("Sab delete karo · ${state.binSize.readableSize()} free karo") }
+                            shape = CircleShape,
+                        ) { Text("Empty Bin · free ${state.binSize.readableSize()}") }
                     }
                 }
+                Spacer(Modifier.height(4.dp))
             }
             items(state.binEntries, key = { it.id }) { entry ->
                 BinRow(entry, keepDays, onRestore = { vm.restore(entry) }, onDelete = { confirmOne = entry })
@@ -125,17 +128,17 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
 
     if (confirmAll) {
         ConfirmDialog(
-            title = "Bin khali karein?",
-            text = "Saare originals hamesha ke liye delete ho jayenge aur ${state.binSize.readableSize()} free hoga.",
-            confirmLabel = "Haan, delete karo",
+            title = "Empty the Bin?",
+            text = "All originals will be deleted forever and ${state.binSize.readableSize()} will be freed.",
+            confirmLabel = "Delete all",
             onConfirm = { vm.emptyBin() },
             onDismiss = { confirmAll = false },
         )
     }
     confirmOne?.let { e ->
         ConfirmDialog(
-            title = "Original delete karein?",
-            text = "${e.name} ka original hamesha ke liye delete hoga. Compressed file gallery me rahegi.",
+            title = "Delete this original?",
+            text = "The original of ${e.name} will be deleted forever. The compressed file stays in your gallery.",
             confirmLabel = "Delete",
             onConfirm = { vm.deleteFromBin(e) },
             onDismiss = { confirmOne = null },
@@ -147,17 +150,26 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
 private fun BinRow(entry: BinEntry, keepDays: Int, onRestore: () -> Unit, onDelete: () -> Unit) {
     val ageDays = ((System.currentTimeMillis() - entry.createdAt) / (24L * 60 * 60 * 1000)).toInt()
     val left = (keepDays - ageDays).coerceAtLeast(0)
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = RoundedCornerShape(14.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
     ) {
-        Row(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(kindIcon(entry.kind), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "Original ${entry.originalSize.readableSize()} · ab ${entry.compressedSize.readableSize()} · $left din baaki",
+                    entry.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    "${entry.originalSize.readableSize()} → ${entry.compressedSize.readableSize()} · $left days left",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

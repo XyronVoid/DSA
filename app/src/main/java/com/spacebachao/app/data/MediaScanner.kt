@@ -9,7 +9,7 @@ import android.provider.OpenableColumns
 
 object MediaScanner {
 
-    /** Phone ki JPEG photos / MP4 videos, sabse badi pehle. */
+    /** JPEG photos / MP4 videos on the phone, biggest first. */
     fun scan(context: Context, kind: Kind): List<MediaFile> {
         val collection: Uri
         val mime: String
@@ -37,6 +37,7 @@ object MediaScanner {
             MediaStore.MediaColumns.DATE_MODIFIED,
             MediaStore.MediaColumns.WIDTH,
             MediaStore.MediaColumns.HEIGHT,
+            MediaStore.MediaColumns.DATA,
         )
         if (kind == Kind.VIDEO) projection += MediaStore.MediaColumns.DURATION
 
@@ -55,6 +56,8 @@ object MediaScanner {
             val wCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
             val hCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.HEIGHT)
             val durCol = c.getColumnIndex(MediaStore.MediaColumns.DURATION)
+            @Suppress("DEPRECATION")
+            val pathCol = c.getColumnIndex(MediaStore.MediaColumns.DATA)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 result += MediaFile(
@@ -69,13 +72,14 @@ object MediaScanner {
                     width = c.getInt(wCol),
                     height = c.getInt(hCol),
                     durationMs = if (durCol >= 0) c.getLong(durCol) else 0L,
+                    path = if (pathCol >= 0) c.getString(pathCol) else null,
                 )
             }
         }
         return result
     }
 
-    /** User ne jo PDF chuna, uska naam aur size. */
+    /** Name and size of a PDF the user picked. */
     fun describePdf(context: Context, uri: Uri): MediaFile? {
         var name = "document.pdf"
         var size = -1L

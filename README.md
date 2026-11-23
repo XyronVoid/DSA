@@ -1,51 +1,28 @@
-# Space Bachao (v1)
+# Space Bachao
 
-Phone ki photos, videos aur scan wale PDF ko phone ke andar hi compress karke jagah banane wala Android app.
-Isme **internet permission hai hi nahi**, toh koi file phone se bahar nahi ja sakti.
+Offline Android app that compresses photos, videos and scanned PDFs on the phone to free up storage.
+No INTERNET permission: files never leave the phone.
 
-## Kya karta hai
-
-| Type | Kaise | Kitna bachta hai (lagbhag) |
+| Type | How | Typical saving |
 |---|---|---|
-| Photos (JPEG) | Same resolution, dobara encode. Date, location, camera info copy hoti hai | 30–60% |
-| Videos (MP4) | H.265 (HEVC) me, phone ke hardware encoder se. Resolution/FPS same | 40–55% |
-| PDF (scan wale) | Har page saaf image banke naya PDF | 50–80% |
+| Photos (JPEG) | Same resolution, re-encoded; date, location, camera info and time-zone kept | 30–60% |
+| Videos (MP4) | H.265 via the phone's hardware encoder (Media3 Transformer); date/location written back | 40–55% |
+| Scanned PDFs | Pages re-rendered as clean JPEG pages | 50–80% |
 
-- **Replace mode:** compressed file original ki jagah aati hai, original **Bin** me 7/15/30 din safe rehta hai (1 tap me Restore)
-- **Dono rakho mode:** original waisa hi, chhoti copy `Pictures/SpaceBachao`, `Movies/SpaceBachao` ya `Download/SpaceBachao` me
-- Jis file me bachat kam ho (photo me 15% se kam, video me 10% se kam), use chhod deta hai aur original nahi chhedta
-- Motion photos, portrait (depth) photos aur password wale PDF chhod diye jaate hain
-- Ek baar compress hui file dobara list me nahi aati (double compression se quality nahi girti)
+- **Replace** mode: smaller file takes the original's place, original kept in the Bin (7/15/30 days), one-tap restore. Original file dates are put back so the gallery order doesn't change.
+- **Keep both** mode: smaller copy in `Pictures/SpaceBachao`, `Movies/SpaceBachao` or `Download/SpaceBachao`.
+- **Free:** unlimited photos, 3 videos + 2 PDFs per day. **Pro** (one-time, Google Play Billing 8, product id `pro_lifetime`): unlimited, all quality modes, longer Bin.
 
-## APK kaise banega
+## Builds
+GitHub Actions (`.github/workflows/build.yml`) builds on every push to `space-bachao`:
+- `SpaceBachao.apk` – **preview** build (minified like release, signed with the checked-in test key). For testing on your phone. Published as a GitHub Release.
+- `SpaceBachao-unsigned.aab` – Play Store bundle, signed afterwards with the private upload key (`jarsigner`).
 
-**Option A: GitHub (phone se bhi chalega)**
-1. Ye folder GitHub repo me push karo
-2. Repo me **Actions** tab, phir **Build APK** kholo
-3. Build poora hone pe neeche **Artifacts** me `SpaceBachao-debug-apk` download karo, zip kholo, APK install karo
+Local build: open in Android Studio, or `./gradlew assemblePreview bundleRelease`.
+To sign the bundle directly, set `SB_KEYSTORE_PATH`, `SB_KEYSTORE_PASSWORD`, `SB_KEY_ALIAS`, `SB_KEY_PASSWORD`.
 
-**Option B: Android Studio (PC)**
-1. Android Studio me `Open` karke ye folder chuno
-2. Gradle sync hone do (pehli baar internet se cheezein download hongi)
-3. Phone USB se lagao, ▶ Run dabao
+Targets Android 16 (API 36), min Android 10 (API 29).
 
-## Pehli baar test kaise karein (zaroori)
-1. Settings me Bin **7 din** rakho
-2. Sirf 3–4 photos aur 1 video chuno, **Replace** mode me compress karo
-3. Gallery me khol ke dekho: quality, date, location sahi hai?
-4. Bin me jaake ek file **Restore** karke dekho
-5. Sab theek ho tabhi badi files pe chalao
-
-## Abhi ki limits (v2 me aayega)
-- Compress ke time app khula rakhna padta hai (background service v2 me)
-- Photos me sirf JPEG, videos me sirf MP4. PNG/HEIC/WhatsApp ki purani formats v2 me
-- Bin apne aap tab saaf hota hai jab app khulta hai
-- Play Store pe daalne se pehle: target SDK 36 karna hoga, aur Play Console me photo/video permission ka declaration form bharna hoga
-
-## Code kahan hai
-- `engine/ImageCompressor.kt`: photo compress + EXIF copy
-- `engine/VideoCompressor.kt`: H.265 video (Media3 Transformer), date/location wapas MP4 me
-- `engine/PdfCompressor.kt`: PDF pages ko image banake naya PDF (khud ka chhota PDF writer)
-- `data/BinManager.kt`: originals ka locker, restore
-- `AppViewModel.kt`: poora flow (scan, compress, safe replace, bin)
-- `ui/`: screens
+## Play Store
+See `PLAY_STORE.md` (listing text, data safety, photo/video permission declaration, Pro product, release steps) and `PRIVACY.md`.
+Store graphics are in `playstore/`.

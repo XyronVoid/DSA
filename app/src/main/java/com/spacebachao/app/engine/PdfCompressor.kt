@@ -16,8 +16,8 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * Scan / photo wale PDF ke liye: har page ko saaf image banakar naya chhota PDF banata hai.
- * Text wale PDF me iska fayda nahi hota, isliye wahan bachat kam aayi toh file skip ho jaati hai.
+ * For scanned / photo PDFs: renders each page as a clean image and builds a new, smaller PDF.
+ * Text PDFs don't benefit, so if the saving is small the file is skipped.
  */
 object PdfCompressor {
 
@@ -25,20 +25,20 @@ object PdfCompressor {
 
     fun compress(context: Context, file: MediaFile, quality: Quality, out: File, onProgress: (Float) -> Unit) {
         val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
-            ?: throw SkipException("PDF khul nahi raha")
+            ?: throw SkipException("Could not open this PDF")
         val renderer = try {
             PdfRenderer(pfd)
         } catch (e: SecurityException) {
             pfd.close()
-            throw SkipException("Password wala PDF hai, isliye chhoda")
+            throw SkipException("Password-protected PDF, left as is")
         } catch (e: Exception) {
             pfd.close()
-            throw SkipException("PDF padh nahi paaye")
+            throw SkipException("Could not read this PDF")
         }
 
         renderer.use { r ->
             val count = r.pageCount
-            if (count == 0) throw SkipException("PDF khali hai")
+            if (count == 0) throw SkipException("This PDF has no pages")
             SimplePdfWriter(out).use { writer ->
                 for (i in 0 until count) {
                     r.openPage(i).use { page ->
@@ -53,7 +53,7 @@ object PdfCompressor {
                         val bmp = try {
                             Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                         } catch (e: OutOfMemoryError) {
-                            throw SkipException("Phone ki memory kam pad gayi")
+                            throw SkipException("Not enough memory on this phone")
                         }
                         try {
                             bmp.eraseColor(Color.WHITE)
@@ -72,7 +72,7 @@ object PdfCompressor {
     }
 }
 
-/** Bahut simple PDF writer: har page par ek JPEG image. Koi library nahi chahiye. */
+/** Minimal PDF writer: one JPEG image per page. No library needed. */
 private class SimplePdfWriter(file: File) : AutoCloseable {
     private val out = CountingStream(BufferedOutputStream(FileOutputStream(file)))
     private val offsets = HashMap<Int, Long>()

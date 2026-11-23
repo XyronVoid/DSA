@@ -2,14 +2,19 @@ package com.spacebachao.app.data
 
 import android.net.Uri
 
-enum class Kind { IMAGE, VIDEO, PDF }
+enum class Kind(val label: String, val plural: String) {
+    IMAGE("Photo", "Photos"),
+    VIDEO("Video", "Videos"),
+    PDF("PDF", "PDFs"),
+}
 
-/** Replace = compressed file original ki jagah. KeepBoth = alag copy banegi. */
+/** REPLACE = compressed file takes the original's place. KEEP_BOTH = a separate smaller copy. */
 enum class Mode { REPLACE, KEEP_BOTH }
 
 enum class Quality(
     val label: String,
     val description: String,
+    val proOnly: Boolean,
     val jpegQuality: Int,
     val hevcRatio: Double,
     val avcRatio: Double,
@@ -18,17 +23,17 @@ enum class Quality(
     val pdfJpegQuality: Int,
 ) {
     HIGH(
-        "High quality", "Kam bachat, quality ekdum original jaisi",
+        "High quality", "Smaller savings, looks identical even when zoomed", proOnly = true,
         jpegQuality = 90, hevcRatio = 0.60, avcRatio = 0.80, floorFactor = 1.3,
         pdfDpi = 200, pdfJpegQuality = 85,
     ),
     BALANCED(
-        "Balanced (recommended)", "Aankh se fark nahi dikhta, achhi bachat",
+        "Balanced", "Recommended. No visible difference, great savings", proOnly = false,
         jpegQuality = 85, hevcRatio = 0.45, avcRatio = 0.65, floorFactor = 1.0,
         pdfDpi = 150, pdfJpegQuality = 80,
     ),
     MAX_SAVING(
-        "Max saving", "Sabse zyada bachat, zoom karne pe thoda fark dikh sakta hai",
+        "Max saving", "Biggest savings, slight softness when zoomed in", proOnly = true,
         jpegQuality = 78, hevcRatio = 0.33, avcRatio = 0.50, floorFactor = 0.75,
         pdfDpi = 120, pdfJpegQuality = 70,
     ),
@@ -46,8 +51,9 @@ data class MediaFile(
     val width: Int = 0,
     val height: Int = 0,
     val durationMs: Long = 0,
+    /** Real file path (used only to put the original date back on the file). */
+    val path: String? = null,
 ) {
-    /** Har file ki pehchaan. PDF ke liye uri hi key hai. */
     val key: String
         get() = keyFor(kind, id, uri)
 
@@ -80,10 +86,12 @@ data class BinEntry(
     val compressedSize: Long,
     val createdAt: Long,
     val dateTakenMs: Long,
+    val dateModifiedMs: Long = 0,
+    val path: String? = null,
 )
 
 /**
- * Compressor jab file ko jaan-boojh kar chhodta hai (fail nahi, skip).
- * permanent = true matlab ye file dobara list me nahi dikhegi.
+ * Thrown when a file is deliberately left alone (not an error).
+ * permanent = true means the file won't be offered again.
  */
 class SkipException(message: String, val permanent: Boolean = true) : Exception(message)
