@@ -8,7 +8,7 @@ Everything you need to copy-paste into Play Console.
 - **File:** `SpaceBachao-1.1.0-signed.aab` (signed with your upload key)
 - When Play Console asks about app signing, choose **"Use Google-generated key" (Play App Signing)**. Your `spacebachao-upload.jks` stays as the *upload* key.
 - **Package name:** `com.spacebachao.app` (can never change)
-- **Version:** 1.1.0 (versionCode 2). Every new upload needs a higher versionCode.
+- **Version:** 1.2.0 (versionCode 3). Every new upload needs a higher versionCode.
 
 ---
 
@@ -23,8 +23,8 @@ Free up phone space. Shrink photos & videos offline, quality looks the same.
 **Full description:**
 Phone full again? Space Bachao shrinks your photos, videos and scanned PDFs right on your phone, so you get gigabytes back without deleting a single memory.
 
-★ 100% OFFLINE & PRIVATE
-Space Bachao has no internet permission at all. Your photos and videos never leave your phone. No uploads, no cloud, no ads, no tracking.
+★ 100% SECURE & PRIVATE
+Space Bachao has no internet permission at all, so your photos and videos never leave your phone. No uploads, no cloud, no ads, no tracking.
 
 ★ SAME QUALITY, LESS SPACE
 • Photos: 30–60% smaller at the same resolution
@@ -43,8 +43,8 @@ Dates, locations and camera details are kept, so your photos stay in the same pl
 ★ BIGGEST FILES FIRST
 See exactly which photos and videos eat your space, select them and tap Compress. Track how many are done and how many are left.
 
-FREE: unlimited photos, 3 videos and 2 PDFs per day.
-PRO (one-time payment, no subscription): unlimited videos and PDFs, High quality and Max saving modes, longer Bin, all future features.
+FREE: compress up to 5 GB of files (photos, videos and PDFs together).
+PRO subscription: unlimited files, High quality and Max saving modes, longer Bin, all future features. Cancel anytime in Google Play.
 
 **Category:** Tools
 **Tags:** Storage, File management, Photo compressor
@@ -59,13 +59,16 @@ https://github.com/XyronVoid/DSA/blob/space-bachao/PRIVACY.md
 
 ---
 
-## 3. In-app product (Pro)
-Play Console → **Monetize with Play → Products → One-time products** → Create
-- **Product ID:** `pro_lifetime` (must match exactly)
+## 3. Subscription (Pro)
+Play Console → **Monetize with Play → Products → Subscriptions** → Create subscription
+- **Product ID:** `space_bachao_pro` (must match exactly)
 - **Name:** Space Bachao Pro
-- **Description:** Unlimited videos & PDFs, all quality modes, longer Bin. One-time payment.
-- **Price:** suggestion ₹149 (launch offer ₹99)
-- Activate it.
+- **Benefits:** Unlimited files · All quality modes · Longer Bin
+- **Base plans** (auto-renewing):
+  - `monthly`: billing period 1 month, price suggestion ₹49
+  - `yearly`: billing period 1 year, price suggestion ₹299 (app shows it as "Best value")
+- Optional: add an offer on `yearly` with a **free trial** (e.g. 1 week). The app shows the trial automatically.
+- Activate the base plans.
 
 > You need a **payments profile** (Merchant account) set up in Play Console to sell. Products can only be created after you upload the first AAB to any testing track.
 
@@ -77,7 +80,7 @@ Play Console → **Monetize with Play → Products → One-time products** → C
 
 **Ads:** No, the app does not contain ads.
 
-**App access:** All functionality is available without login. (Pro can be tested with a license tester account.)
+**App access:** All functionality is available without login. (Pro can be tested with a license tester account: Play Console → Settings → License testing → add your Gmail. Test subscriptions are free and renew every few minutes.)
 
 **Content rating questionnaire:** Category "Utility, Productivity, Communication, or Other". Answer **No** to everything (no violence, no user content, no gambling...). Result should be "Everyone / 3+".
 

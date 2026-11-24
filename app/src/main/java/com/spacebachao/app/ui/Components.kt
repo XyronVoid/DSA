@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-
 package com.spacebachao.app.ui
 
 import android.graphics.Bitmap
@@ -20,20 +18,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,14 +36,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.spacebachao.app.data.Kind
+import com.spacebachao.app.ui.theme.LocalApple
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -83,7 +82,7 @@ fun Thumbnail(uri: Uri, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest))
+        Box(modifier.background(LocalApple.current.track))
     }
 }
 
@@ -101,107 +100,94 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val p = LocalApple.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(text) },
+        containerColor = p.card,
+        shape = RoundedCornerShape(28.dp),
+        title = { Text(title, color = p.label) },
+        text = { Text(text, color = p.secondary) },
         confirmButton = {
             TextButton(onClick = {
                 onConfirm()
                 onDismiss()
-            }) { Text(confirmLabel) }
+            }) { Text(confirmLabel, color = p.red, fontWeight = FontWeight.SemiBold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = p.accent) } },
     )
 }
 
+/** "100% secure" trust line. */
 @Composable
-fun PrivacyLine(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+fun SecureLine(modifier: Modifier = Modifier, color: Color? = null) {
+    val p = LocalApple.current
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = color)
+        Icon(Icons.Filled.VerifiedUser, contentDescription = null, modifier = Modifier.size(15.dp), tint = p.green)
         Spacer(Modifier.width(6.dp))
         Text(
-            "100% offline · No internet permission",
+            "100% secure · Files never leave your phone",
             style = MaterialTheme.typography.labelMedium,
-            color = color,
+            color = color ?: p.secondary,
         )
     }
 }
 
 @Composable
-fun Bullet(text: String, color: Color = MaterialTheme.colorScheme.onSurface) {
+fun Bullet(text: String, iconTint: Color? = null) {
+    val p = LocalApple.current
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 5.dp)) {
         Icon(
             Icons.Filled.CheckCircle,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = iconTint ?: p.accent,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(12.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = color)
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = p.label)
     }
 }
 
 @Composable
 fun PermissionScreen(onGrant: () -> Unit) {
+    val p = LocalApple.current
     Column(
         Modifier
             .fillMaxSize()
             .systemBarsPadding()
-            .padding(horizontal = 28.dp, vertical = 24.dp),
+            .padding(horizontal = 24.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
         Box(
             Modifier
-                .size(80.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(28.dp)),
+                .size(84.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(listOf(p.accentLight, p.accent))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Filled.Shield,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(40.dp),
-            )
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(42.dp))
         }
         Spacer(Modifier.height(28.dp))
-        Text(
-            "Free up space.\nKeep every memory.",
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Text("Free up space.\nKeep every memory.", style = MaterialTheme.typography.displaySmall, color = p.label)
         Spacer(Modifier.height(12.dp))
         Text(
             "Space Bachao shrinks your photos, videos and scanned PDFs right on your phone. " +
                 "They look the same, they just take less space.",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = p.secondary,
         )
         Spacer(Modifier.height(24.dp))
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Bullet("Nothing is uploaded. The app has no internet permission.")
-                Bullet("Originals stay in the Bin so you can restore them.")
-                Bullet("Dates and locations are kept, your gallery stays in order.")
-            }
+        GlassCard {
+            Bullet("100% secure. Your files never leave your phone.", p.green)
+            Bullet("Originals stay in the Bin so you can restore them.")
+            Bullet("Dates and locations are kept, your gallery stays in order.")
         }
         Spacer(Modifier.height(32.dp))
-        Button(
-            onClick = onGrant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = CircleShape,
-        ) { Text("Allow access to photos & videos", style = MaterialTheme.typography.titleMedium) }
-        Spacer(Modifier.height(10.dp))
+        GlossyButton("Allow access to photos & videos", onGrant, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(12.dp))
         Text(
             "Location access is only used so photo locations aren't lost.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = p.secondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )

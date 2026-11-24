@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-
 package com.spacebachao.app.ui
 
 import android.app.Activity
@@ -10,20 +8,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spacebachao.app.AppViewModel
 import com.spacebachao.app.Perms
+import com.spacebachao.app.ui.theme.LocalApple
 
 private enum class Screen { HOME, BIN, SETTINGS }
 
@@ -75,32 +72,31 @@ fun AppRoot(vm: AppViewModel) {
     BackHandler(enabled = job?.running == true) { }
     BackHandler(enabled = job != null && !job.running && paywall == null) { vm.dismissJob() }
 
-    // Surface sets the right text colour for light and dark mode (fixes invisible black text)
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        when {
-            !state.hasPermission -> PermissionScreen(onGrant = { permissionLauncher.launch(Perms.required()) })
-            paywall != null -> ProScreen(state, paywall, vm)
-            job != null -> JobScreen(
-                job = job,
-                binDays = state.effectiveBinDays,
-                binSize = state.binSize,
-                onCancel = vm::cancelJob,
-                onDone = vm::dismissJob,
-                onEmptyBin = vm::emptyBin,
-            )
-            screen == Screen.BIN -> BinScreen(state, vm, onBack = { screen = Screen.HOME })
-            screen == Screen.SETTINGS -> SettingsScreen(state, vm, onBack = { screen = Screen.HOME })
-            else -> HomeScreen(
-                state = state,
-                vm = vm,
-                onPickPdf = { pdfLauncher.launch(arrayOf("application/pdf")) },
-                onOpenBin = { screen = Screen.BIN },
-                onOpenSettings = { screen = Screen.SETTINGS },
-            )
+    // Soft colourful background behind glass; text colour set for light and dark mode
+    AppBackground {
+        CompositionLocalProvider(LocalContentColor provides LocalApple.current.label) {
+            when {
+                !state.hasPermission -> PermissionScreen(onGrant = { permissionLauncher.launch(Perms.required()) })
+                paywall != null -> ProScreen(state, paywall, vm)
+                job != null -> JobScreen(
+                    job = job,
+                    binDays = state.effectiveBinDays,
+                    binSize = state.binSize,
+                    onCancel = vm::cancelJob,
+                    onDone = vm::dismissJob,
+                    onEmptyBin = vm::emptyBin,
+                    onGetPro = { vm.openPro() },
+                )
+                screen == Screen.BIN -> BinScreen(state, vm, onBack = { screen = Screen.HOME })
+                screen == Screen.SETTINGS -> SettingsScreen(state, vm, onBack = { screen = Screen.HOME })
+                else -> HomeScreen(
+                    state = state,
+                    vm = vm,
+                    onPickPdf = { pdfLauncher.launch(arrayOf("application/pdf")) },
+                    onOpenBin = { screen = Screen.BIN },
+                    onOpenSettings = { screen = Screen.SETTINGS },
+                )
+            }
         }
     }
 }

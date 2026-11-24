@@ -20,8 +20,10 @@ android {
         applicationId = "com.spacebachao.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
+        // Test builds unlock Pro for the developer. Always false in the Play Store build.
+        buildConfigField("boolean", "DEV_PRO", "false")
     }
 
     signingConfigs {
@@ -53,11 +55,15 @@ android {
             // No key on this machine = unsigned bundle (it gets signed separately with the upload key).
             signingConfig = if (hasReleaseKey) signingConfigs.getByName("release") else null
         }
-        // Same as release (small, fast), but signed with the debug key so it can be installed for testing.
+        // Same as release (small, fast), but signed with the test key and Pro unlocked, for the developer's phone.
         create("preview") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "DEV_PRO", "true")
+        }
+        getByName("debug") {
+            buildConfigField("boolean", "DEV_PRO", "true")
         }
     }
 
@@ -70,6 +76,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     lint {
         abortOnError = false

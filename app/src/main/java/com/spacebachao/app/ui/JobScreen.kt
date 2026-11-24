@@ -1,7 +1,6 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-
 package com.spacebachao.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,18 +18,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -41,7 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,9 +50,7 @@ import com.spacebachao.app.data.Kind
 import com.spacebachao.app.data.Mode
 import com.spacebachao.app.data.ResultItem
 import com.spacebachao.app.readableSize
-import com.spacebachao.app.ui.theme.ErrorRed
-import com.spacebachao.app.ui.theme.SuccessGreen
-import com.spacebachao.app.ui.theme.WarnAmber
+import com.spacebachao.app.ui.theme.LocalApple
 
 @Composable
 fun JobScreen(
@@ -63,6 +60,7 @@ fun JobScreen(
     onCancel: () -> Unit,
     onDone: () -> Unit,
     onEmptyBin: () -> Unit,
+    onGetPro: () -> Unit,
 ) {
     // Keep the screen on while working
     val view = LocalView.current
@@ -70,33 +68,32 @@ fun JobScreen(
         view.keepScreenOn = job.running
         onDispose { view.keepScreenOn = false }
     }
-    if (job.running) RunningView(job, onCancel) else ResultView(job, binDays, binSize, onDone, onEmptyBin)
+    if (job.running) RunningView(job, onCancel) else ResultView(job, binDays, binSize, onDone, onEmptyBin, onGetPro)
 }
 
 @Composable
-private fun CountPill(label: String, value: String, modifier: Modifier = Modifier, highlight: Boolean = false) {
-    Surface(
-        color = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.large,
-        modifier = modifier,
+private fun StatTile(label: String, value: String, modifier: Modifier = Modifier, valueColor: Color? = null) {
+    val p = LocalApple.current
+    Column(
+        modifier
+            .glass(p, RoundedCornerShape(22.dp), strong = true)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            value,
+            style = MaterialTheme.typography.headlineSmall,
+            color = valueColor ?: p.label,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+        Text(label, style = MaterialTheme.typography.labelMedium, color = p.secondary)
     }
 }
 
 @Composable
 private fun RunningView(job: JobState, onCancel: () -> Unit) {
+    val p = LocalApple.current
     Column(
         Modifier
             .fillMaxSize()
@@ -108,76 +105,73 @@ private fun RunningView(job: JobState, onCancel: () -> Unit) {
         Text(
             "Compressing ${job.currentKind.label.lowercase()} ${job.index + 1} of ${job.total}",
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = p.label,
         )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(30.dp))
         Box(contentAlignment = Alignment.Center) {
-            val p = job.currentProgress
-            if (p >= 0f) {
-                CircularProgressIndicator(
-                    progress = { p },
-                    modifier = Modifier.size(180.dp),
-                    strokeWidth = 12.dp,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                )
-                Text("${(p * 100).toInt()}%", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface)
-            } else {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(180.dp),
-                    strokeWidth = 12.dp,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                )
+            val pr = job.currentProgress
+            GradientRing(
+                progress = if (pr >= 0f) pr else null,
+                size = 210.dp,
+                stroke = 20.dp,
+                colors = listOf(p.accentLight, p.accent, p.green, p.accentLight),
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "${job.index + 1}/${job.total}",
+                    if (pr >= 0f) "${(pr * 100).toInt()}%" else "${job.index + 1}/${job.total}",
                     style = MaterialTheme.typography.displaySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = p.label,
                 )
+                Text(job.currentKind.label, style = MaterialTheme.typography.labelLarge, color = p.secondary)
             }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(18.dp))
         Text(
             job.currentName,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = p.secondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(22.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            CountPill("Done", "${job.doneCount}", Modifier.weight(1f))
-            CountPill("Left", "${job.leftCount}", Modifier.weight(1f))
-            CountPill("Saved", job.savedSoFar.readableSize(), Modifier.weight(1.4f), highlight = true)
+            StatTile("Done", "${job.doneCount}", Modifier.weight(1f))
+            StatTile("Left", "${job.leftCount}", Modifier.weight(1f))
+            StatTile("Saved", job.savedSoFar.readableSize(), Modifier.weight(1.4f), valueColor = p.green)
         }
-        Spacer(Modifier.height(14.dp))
-        LinearProgressIndicator(
-            progress = { if (job.total > 0) job.doneCount.toFloat() / job.total else 0f },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(CircleShape),
-        )
+        Spacer(Modifier.height(16.dp))
+        CapsuleBar(if (job.total > 0) job.doneCount.toFloat() / job.total else 0f, height = 10.dp)
         Spacer(Modifier.height(10.dp))
-        // Per type: "Videos 2/5 · Photos 7/20"
         val perKind = listOf(Kind.VIDEO, Kind.IMAGE, Kind.PDF)
             .filter { (job.totals[it] ?: 0) > 0 }
-            .joinToString("  ·  ") { "${it.plural} ${job.doneOf(it)}/${job.totals[it]}" }
+            .joinToString("   ·   ") { "${it.plural} ${job.doneOf(it)}/${job.totals[it]}" }
         if (perKind.isNotEmpty()) {
-            Text(perKind, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(perKind, style = MaterialTheme.typography.labelLarge, color = p.secondary)
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(26.dp))
+        SecureLine()
+        Spacer(Modifier.height(6.dp))
         Text(
-            "Keep the app open. Everything happens on this phone, nothing is uploaded.",
+            "Keep the app open until it's done.",
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = p.secondary,
         )
         Spacer(Modifier.height(20.dp))
-        OutlinedButton(onClick = onCancel, shape = CircleShape) { Text("Stop") }
+        GlassButton("Stop", onCancel, Modifier.width(160.dp), textColor = p.red)
     }
 }
 
 @Composable
-private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () -> Unit, onEmptyBin: () -> Unit) {
+private fun ResultView(
+    job: JobState,
+    binDays: Int,
+    binSize: Long,
+    onDone: () -> Unit,
+    onEmptyBin: () -> Unit,
+    onGetPro: () -> Unit,
+) {
+    val p = LocalApple.current
     val savedCount = job.results.count { it.status == ItemStatus.SAVED }
     val skippedCount = job.results.count { it.status == ItemStatus.SKIPPED }
     val failedCount = job.results.count { it.status == ItemStatus.FAILED }
@@ -188,64 +182,80 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
             .fillMaxSize()
             .systemBarsPadding(),
         contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(16.dp))
-                Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = SuccessGreen,
-                    modifier = Modifier.size(56.dp),
-                )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(20.dp))
+                Box(
+                    Modifier
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(p.greenLight, p.green))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(job.savedSoFar.readableSize(), style = MaterialTheme.typography.displayMedium, color = p.label)
                 Text(
-                    job.savedSoFar.readableSize(),
-                    style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    if (job.cancelled) "saved (stopped early)" else "saved",
+                    if (job.cancelled) "saved (stopped early)" else "space saved",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = p.secondary,
                 )
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    CountPill("Compressed", "$savedCount", Modifier.weight(1f), highlight = true)
-                    CountPill("Skipped", "$skippedCount", Modifier.weight(1f))
-                    CountPill("Failed", "$failedCount", Modifier.weight(1f))
+                    StatTile("Compressed", "$savedCount", Modifier.weight(1f), valueColor = p.green)
+                    StatTile("Skipped", "$skippedCount", Modifier.weight(1f), valueColor = p.orange)
+                    StatTile("Failed", "$failedCount", Modifier.weight(1f), valueColor = p.red)
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
+            }
+        }
+
+        if (job.limitReached) {
+            item {
+                GlassCard(strong = true) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.goldDeep)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Your free 5 GB is used up", style = MaterialTheme.typography.titleMedium, color = p.label)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "The remaining files were not touched. Subscribe to Pro to compress unlimited files.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = p.secondary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    GlossyButton(
+                        "Get Pro",
+                        onGetPro,
+                        Modifier.fillMaxWidth(),
+                        colors = listOf(p.gold, p.goldDeep),
+                    )
+                }
             }
         }
 
         if (job.mode == Mode.REPLACE && job.binUsed && savedCount > 0 && binSize > 0) {
             item {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = MaterialTheme.shapes.large,
-                ) {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(
-                            "Originals are safe in the Bin ($binDays days)",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Check your gallery first. The space is freed when the Bin is emptied " +
-                                "(or automatically after $binDays days).",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        FilledTonalButton(
-                            onClick = { confirmEmpty = true },
-                            shape = CircleShape,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Empty Bin · free ${binSize.readableSize()}") }
-                    }
+                GlassCard {
+                    Text("Originals are safe in the Bin", style = MaterialTheme.typography.titleMedium, color = p.label)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Check your gallery first. The space is freed when the Bin is emptied " +
+                            "(or automatically after $binDays days).",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = p.secondary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    GlossyButton(
+                        "Empty Bin · free ${binSize.readableSize()}",
+                        { confirmEmpty = true },
+                        Modifier.fillMaxWidth(),
+                        colors = listOf(p.orange, p.red),
+                    )
                 }
             }
         }
@@ -253,15 +263,14 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
         items(job.results) { r -> ResultRow(r) }
 
         item {
-            Button(
-                onClick = onDone,
-                modifier = Modifier
+            GlossyButton(
+                "Done",
+                onDone,
+                Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp)
-                    .height(56.dp)
                     .navigationBarsPadding(),
-                shape = CircleShape,
-            ) { Text("Done", style = MaterialTheme.typography.titleMedium) }
+            )
         }
     }
 
@@ -278,34 +287,36 @@ private fun ResultView(job: JobState, binDays: Int, binSize: Long, onDone: () ->
 
 @Composable
 private fun ResultRow(r: ResultItem) {
+    val p = LocalApple.current
     val (icon, tint) = when (r.status) {
-        ItemStatus.SAVED -> Icons.Filled.CheckCircle to SuccessGreen
-        ItemStatus.SKIPPED -> Icons.Filled.Info to WarnAmber
-        ItemStatus.FAILED -> Icons.Filled.Error to ErrorRed
+        ItemStatus.SAVED -> Icons.Filled.CheckCircle to p.green
+        ItemStatus.SKIPPED -> Icons.Filled.Info to p.orange
+        ItemStatus.FAILED -> Icons.Filled.Error to p.red
     }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = MaterialTheme.shapes.medium,
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .glass(p, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    r.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                val sub = if (r.status == ItemStatus.SAVED) {
-                    val pct = if (r.before > 0) ((r.before - r.after) * 100 / r.before) else 0
-                    "${r.before.readableSize()} → ${r.after.readableSize()}  (−$pct%)"
-                } else {
-                    r.note
-                }
-                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                r.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge,
+                color = p.label,
+            )
+            val sub = if (r.status == ItemStatus.SAVED) {
+                val pct = if (r.before > 0) ((r.before - r.after) * 100 / r.before) else 0
+                "${r.before.readableSize()} → ${r.after.readableSize()}  (−$pct%)"
+            } else {
+                r.note
             }
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = p.secondary)
         }
     }
 }

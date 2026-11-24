@@ -1,9 +1,6 @@
 package com.spacebachao.app.data
 
 import android.content.Context
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -67,27 +64,8 @@ class Prefs(context: Context) {
         sp.edit().putStringSet(name, set).apply()
     }
 
-    // ---------- Free daily limits ----------
-
-    private fun today(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
-
-    @Synchronized
-    fun usedToday(kind: Kind): Int {
-        if (sp.getString("quotaDay", null) != today()) return 0
-        return sp.getInt("used_${kind.name}", 0)
-    }
-
-    @Synchronized
-    fun addUsed(kind: Kind) {
-        val day = today()
-        val edit = sp.edit()
-        if (sp.getString("quotaDay", null) != day) {
-            edit.putString("quotaDay", day)
-            Kind.entries.forEach { edit.putInt("used_${it.name}", 0) }
-            edit.putInt("used_${kind.name}", 1)
-        } else {
-            edit.putInt("used_${kind.name}", sp.getInt("used_${kind.name}", 0) + 1)
-        }
-        edit.apply()
-    }
+    /** Original size of all files compressed on the free plan (limit: 5 GB). */
+    var freeUsed: Long
+        get() = sp.getLong("freeUsed", 0L)
+        set(value) = sp.edit().putLong("freeUsed", value).apply()
 }

@@ -35,14 +35,6 @@ jobs:
             SpaceBachao.apk
             SpaceBachao-unsigned.aab
 
-      - name: Publish release (download from phone)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: space-bachao-v1.1.${{ github.run_number }}
-          name: Space Bachao v1.1.${{ github.run_number }}
-          body: Test build. Download SpaceBachao.apk and install. The Play Store version is signed separately.
-          files: SpaceBachao.apk
-
       - name: Save build files to space-bachao-apk branch
         run: |
           mkdir -p /tmp/apkbranch

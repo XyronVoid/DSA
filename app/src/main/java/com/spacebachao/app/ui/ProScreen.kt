@@ -1,11 +1,13 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-
 package com.spacebachao.app.ui
 
 import android.app.Activity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,140 +23,210 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.WorkspacePremium
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.spacebachao.app.AppViewModel
-import com.spacebachao.app.FREE_PDFS_PER_DAY
-import com.spacebachao.app.FREE_VIDEOS_PER_DAY
+import com.spacebachao.app.FREE_LIMIT_BYTES
 import com.spacebachao.app.Paywall
 import com.spacebachao.app.UiState
-import com.spacebachao.app.ui.theme.ProGold
+import com.spacebachao.app.billing.ProPlan
+import com.spacebachao.app.readableSize
+import com.spacebachao.app.ui.theme.LocalApple
 
 @Composable
 fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
+    val p = LocalApple.current
     val activity = LocalContext.current as? Activity
-    Box(
+    val plans = state.plans
+    // Yearly selected by default if it exists
+    var picked by remember(plans) { mutableIntStateOf(plans.indexOfFirst { it.period == "P1Y" }.coerceAtLeast(0)) }
+
+    Column(
         Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surface)
-                )
-            )
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        Column(
+        Row(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.weight(1f))
+            GlassIconButton(Icons.Filled.Close, "Close", { vm.dismissPaywall() })
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(
             Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .size(84.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep)))
+                .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.5f), 0.5f to Color.Transparent)),
+            contentAlignment = Alignment.Center,
         ) {
-            IconButton(onClick = { vm.dismissPaywall() }, modifier = Modifier.align(Alignment.End)) {
-                Icon(Icons.Filled.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Box(
-                Modifier
-                    .size(76.dp)
-                    .background(ProGold.copy(alpha = 0.2f), RoundedCornerShape(26.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = ProGold, modifier = Modifier.size(42.dp))
-            }
-            Spacer(Modifier.height(20.dp))
-            Text(
-                if (state.isPro) "You're Pro" else "Space Bachao Pro",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                paywall.reason ?: "Pay once. Free up space forever.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
+            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+        }
+        Spacer(Modifier.height(18.dp))
+        Text(
+            if (state.isPro) "You're Pro" else "Space Bachao Pro",
+            style = MaterialTheme.typography.displaySmall,
+            color = p.label,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            paywall.reason ?: "Compress unlimited photos, videos and PDFs.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = p.secondary,
+        )
+        Spacer(Modifier.height(20.dp))
 
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Free", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Bullet("Unlimited photos")
-                    Bullet("$FREE_VIDEOS_PER_DAY videos and $FREE_PDFS_PER_DAY PDFs per day")
-                    Bullet("Balanced quality, Bin for 7 days")
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Pro", style = MaterialTheme.typography.labelLarge, color = ProGold)
-                    Bullet("Unlimited videos and PDFs, any size")
-                    Bullet("High quality and Max saving modes")
-                    Bullet("Keep originals in the Bin for 15 or 30 days")
-                    Bullet("All future features, no ads, no subscription")
-                }
-            }
-            Spacer(Modifier.height(28.dp))
+        GlassCard(strong = true) {
+            Text("PRO", style = MaterialTheme.typography.labelLarge, color = p.goldDeep)
+            Bullet("Unlimited files, any size", p.goldDeep)
+            Bullet("High quality and Max saving modes", p.goldDeep)
+            Bullet("Keep originals in the Bin for 15 or 30 days", p.goldDeep)
+            Bullet("All future features, no ads", p.goldDeep)
+        }
+        Spacer(Modifier.height(10.dp))
+        GlassCard {
+            Text("FREE", style = MaterialTheme.typography.labelLarge, color = p.secondary)
+            Text(
+                "Compress up to ${FREE_LIMIT_BYTES.readableSize()} of files (photos, videos and PDFs together). " +
+                    "Used: ${state.freeUsed.readableSize()}.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = p.label,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        Spacer(Modifier.height(18.dp))
 
-            if (state.isPro) {
-                Button(
-                    onClick = { vm.dismissPaywall() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = CircleShape,
-                ) { Text("Thanks for supporting!", style = MaterialTheme.typography.titleMedium) }
+        if (state.isPro) {
+            GlossyButton(
+                if (state.devBuild) "Developer build · Pro unlocked" else "Thanks for supporting!",
+                { vm.dismissPaywall() },
+                Modifier.fillMaxWidth(),
+            )
+        } else {
+            if (plans.isEmpty()) {
+                Text(
+                    "Plans load from Google Play. Install the app from the Play Store to subscribe.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = p.secondary,
+                )
+                Spacer(Modifier.height(10.dp))
             } else {
-                Button(
-                    onClick = { activity?.let { vm.buyPro(it) } },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = CircleShape,
-                ) {
-                    Text(
-                        if (state.proPrice != null) "Unlock Pro · ${state.proPrice} once" else "Unlock Pro",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    plans.forEachIndexed { i, plan ->
+                        PlanCard(plan, selected = i == picked, best = plan.period == "P1Y" && plans.size > 1) {
+                            picked = i
+                        }
+                    }
                 }
-                if (paywall.reason != null) {
-                    Spacer(Modifier.height(10.dp))
-                    val n = paywall.freeItems.size
-                    OutlinedButton(
-                        onClick = { vm.continueFree() },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape = CircleShape,
-                    ) { Text(if (n > 0) "Continue free ($n files today)" else "Not now") }
-                }
-                Spacer(Modifier.height(6.dp))
-                TextButton(onClick = { vm.restorePurchase() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Text("Restore purchase")
-                }
+                Spacer(Modifier.height(16.dp))
             }
-            Spacer(Modifier.height(8.dp))
+            val plan = plans.getOrNull(picked)
+            GlossyButton(
+                when {
+                    plan == null -> "Subscribe"
+                    plan.trialLabel != null -> "Start ${plan.trialLabel}"
+                    else -> "Subscribe · ${plan.price}/${plan.periodLabel}"
+                },
+                { activity?.let { vm.subscribe(it, plan) } },
+                Modifier.fillMaxWidth(),
+                colors = listOf(p.gold, p.goldDeep),
+            )
+            if (paywall.reason != null && paywall.freeItems.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                GlassButton(
+                    "Compress ${paywall.freeItems.size} files that fit for free",
+                    { vm.continueFree() },
+                    Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
-                "One-time payment through Google Play. Your files still never leave your phone.",
+                "Restore purchase",
+                style = MaterialTheme.typography.titleMedium,
+                color = p.accent,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { vm.restorePurchase() }
+                    .padding(10.dp),
+            )
+            Text(
+                "Subscription renews automatically until cancelled. Cancel anytime in Google Play › " +
+                    "Payments & subscriptions. Your files never leave your phone.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = p.secondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(24.dp))
         }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: () -> Unit) {
+    val p = LocalApple.current
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .glass(p, shape, strong = true)
+            .border(if (selected) 2.dp else 0.dp, if (selected) p.goldDeep else Color.Transparent, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(if (selected) p.goldDeep else p.track),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(plan.title, style = MaterialTheme.typography.titleMedium, color = p.label)
+                if (best) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "BEST VALUE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(p.green)
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            plan.trialLabel?.let {
+                Text("$it, then ${plan.price}/${plan.periodLabel}", style = MaterialTheme.typography.bodySmall, color = p.secondary)
+            }
+        }
+        Text(
+            "${plan.price}/${plan.periodLabel}",
+            style = MaterialTheme.typography.titleMedium,
+            color = p.label,
+        )
     }
 }

@@ -13,6 +13,7 @@ import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.spacebachao.app.billing.ProBilling
+import com.spacebachao.app.billing.ProPlan
 import com.spacebachao.app.data.BinEntry
 import com.spacebachao.app.data.BinManager
 import com.spacebachao.app.data.FileOps
@@ -43,8 +44,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
-const val FREE_VIDEOS_PER_DAY = 3
-const val FREE_PDFS_PER_DAY = 2
+/** Free plan: files up to this total (original size, all types together) can be compressed. */
+const val FREE_LIMIT_BYTES = 5L * 1024 * 1024 * 1024
 const val FREE_BIN_DAYS = 7
 
 data class JobState(
@@ -61,6 +62,8 @@ data class JobState(
     val mode: Mode = Mode.REPLACE,
     val binUsed: Boolean = false,
     val totals: Map<Kind, Int> = emptyMap(),
+    /** Stopped because the free 5 GB ran out. */
+    val limitReached: Boolean = false,
 ) {
     val doneCount: Int get() = results.size
     val leftCount: Int get() = (total - results.size).coerceAtLeast(0)
@@ -89,7 +92,11 @@ data class UiState(
     val doneCount: Map<Kind, Int> = emptyMap(),
     val totalSaved: Long = 0,
     val isPro: Boolean = false,
-    val proPrice: String? = null,
+    /** Test build: Pro is unlocked for the developer. */
+    val devBuild: Boolean = false,
+    val plans: List<ProPlan> = emptyList(),
+    /** Original size of files compressed on the free plan so far. */
+    val freeUsed: Long = 0,
     val paywall: Paywall? = null,
     val job: JobState? = null,
     val writeRequest: List<Uri>? = null,
@@ -107,6 +114,8 @@ data class UiState(
         get() = if (!isPro && quality.proOnly) Quality.BALANCED else quality
     val effectiveBinDays: Int
         get() = if (!isPro && binDays > FREE_BIN_DAYS) FREE_BIN_DAYS else binDays
+    val freeLeft: Long
+        get() = (FREE_LIMIT_BYTES - freeUsed).coerceAtLeast(0)
 
     fun listFor(kind: Kind): List<MediaFile> = when (kind) {
         Kind.IMAGE -> images
@@ -131,8 +140,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             mode = prefs.mode,
             quality = prefs.quality,
             binDays = prefs.binDays,
-            isPro = prefs.proCached,
+            isPro = BuildConfig.DEV_PRO || prefs.proCached,
+            devBuild = BuildConfig.DEV_PRO,
             totalSaved = prefs.totalSaved,
+            freeUsed = prefs.freeUsed,
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -140,9 +151,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var job: Job? = null
     private var pendingAction: PendingAction? = null
 
-    private val billing = ProBilling(app) { isPro, price ->
+    private val billing = ProBilling(app) { isPro, plans ->
         if (isPro != null) prefs.proCached = isPro
-        _state.update { it.copy(isPro = isPro ?: it.isPro, proPrice = price ?: it.proPrice) }
+        _state.update {
+            it.copy(
+                isPro = BuildConfig.DEV_PRO || (isPro ?: it.isPro),
+                plans = plans ?: it.plans,
+            )
+        }
         if (isPro == true && _state.value.paywall != null) {
             _state.update { it.copy(paywall = null, message = "Welcome to Pro! Everything is unlocked.") }
         }
@@ -261,11 +277,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissPaywall() = _state.update { it.copy(paywall = null) }
 
-    fun buyPro(activity: Activity) {
+    fun subscribe(activity: Activity, plan: ProPlan?) {
         if (_state.value.isPro) return
-        if (!billing.buy(activity)) {
+        if (plan == null || !billing.buy(activity, plan)) {
             billing.connect()
-            toast("Pro can be bought when the app is installed from Google Play.")
+            toast("Subscriptions work when the app is installed from Google Play.")
         }
     }
 
@@ -275,21 +291,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         toast("Checking your purchases…")
     }
 
-    /** From the paywall: compress only what the free plan allows today. */
+    /** From the paywall: compress only the files that still fit in the free 5 GB. */
     fun continueFree() {
         val items = _state.value.paywall?.freeItems.orEmpty()
         _state.update { it.copy(paywall = null) }
-        if (items.isEmpty()) {
-            toast("Free limit reached for today. Try again tomorrow or get Pro.")
-        } else {
-            launchCompress(items)
-        }
-    }
-
-    fun freeLeft(kind: Kind): Int = when (kind) {
-        Kind.VIDEO -> (FREE_VIDEOS_PER_DAY - prefs.usedToday(Kind.VIDEO)).coerceAtLeast(0)
-        Kind.PDF -> (FREE_PDFS_PER_DAY - prefs.usedToday(Kind.PDF)).coerceAtLeast(0)
-        Kind.IMAGE -> Int.MAX_VALUE
+        if (items.isNotEmpty()) launchCompress(items)
     }
 
     // ---------- PDF ----------
@@ -345,15 +351,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         if (!s.isPro) {
-            val videos = items.filter { it.kind == Kind.VIDEO }
-            val pdfs = items.filter { it.kind == Kind.PDF }
-            val videosLeft = freeLeft(Kind.VIDEO)
-            val pdfsLeft = freeLeft(Kind.PDF)
-            if (videos.size > videosLeft || pdfs.size > pdfsLeft) {
-                val allowed = items.filter { it.kind == Kind.IMAGE } + videos.take(videosLeft) + pdfs.take(pdfsLeft)
-                val reason = "Free plan: $FREE_VIDEOS_PER_DAY videos and $FREE_PDFS_PER_DAY PDFs per day. " +
-                    "Left today: $videosLeft videos, $pdfsLeft PDFs. Photos are always unlimited."
-                _state.update { it.copy(paywall = Paywall(reason, allowed)) }
+            val left = s.freeLeft
+            val total = items.sumOf { it.size }
+            if (total > left) {
+                // Keep the files that still fit in the free 5 GB
+                var budget = left
+                val fit = ArrayList<MediaFile>()
+                for (f in items) {
+                    if (f.size <= budget) {
+                        fit += f
+                        budget -= f.size
+                    }
+                }
+                val reason = if (left == 0L) {
+                    "You've used your free 5 GB. Subscribe to Pro to compress unlimited files."
+                } else {
+                    "The free plan compresses up to 5 GB of files. You have ${left.readableSize()} left " +
+                        "and selected ${total.readableSize()}."
+                }
+                _state.update { it.copy(paywall = Paywall(reason, fit)) }
                 return
             }
         }
@@ -396,6 +412,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val quality = s.effectiveQuality
         val useBin = mode == Mode.REPLACE && s.effectiveBinDays > 0
         val hasLocation = s.hasLocation
+        val isPro = s.isPro
         val totals = items.groupingBy { it.kind }.eachCount()
 
         _state.update {
@@ -406,9 +423,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         job = viewModelScope.launch(Dispatchers.IO) {
             val results = ArrayList<ResultItem>()
             var saved = 0L
+            var limitHit = false
             try {
                 for ((i, item) in items.withIndex()) {
                     ensureActive()
+                    if (!isPro && prefs.freeUsed + item.size > FREE_LIMIT_BYTES) {
+                        limitHit = true
+                        break
+                    }
                     _state.update { st ->
                         st.copy(
                             job = st.job?.copy(
@@ -438,12 +460,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         val gained = r.before - r.after
                         saved += gained
                         prefs.totalSaved = prefs.totalSaved + gained
+                        if (!isPro) prefs.freeUsed = prefs.freeUsed + item.size
                     }
                     val snapshot = results.toList()
                     val savedNow = saved
                     val lifetime = prefs.totalSaved
+                    val used = prefs.freeUsed
                     _state.update { st ->
-                        st.copy(job = st.job?.copy(savedSoFar = savedNow, results = snapshot), totalSaved = lifetime)
+                        st.copy(
+                            job = st.job?.copy(savedSoFar = savedNow, results = snapshot),
+                            totalSaved = lifetime,
+                            freeUsed = used,
+                        )
                     }
                 }
             } finally {
@@ -457,6 +485,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             cancelled = cancelled,
                             savedSoFar = savedNow,
                             results = snapshot,
+                            limitReached = limitHit,
                         ),
                         selected = emptySet(),
                         pdfs = st.pdfs.filter { it.key !in batchKeys },
@@ -528,7 +557,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         prefs.markSaved(listOf(item.key))
                     }
                 }
-                if (item.kind == Kind.VIDEO || item.kind == Kind.PDF) prefs.addUsed(item.kind)
             }
             return ResultItem(item.name, item.kind, item.size, newSize, ItemStatus.SAVED)
         } catch (e: SkipException) {

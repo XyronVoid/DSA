@@ -1,7 +1,7 @@
 # Space Bachao
 
 Offline Android app that compresses photos, videos and scanned PDFs on the phone to free up storage.
-No INTERNET permission: files never leave the phone.
+100% secure: the app has no INTERNET permission, so files never leave the phone.
 
 | Type | How | Typical saving |
 |---|---|---|
@@ -11,11 +11,12 @@ No INTERNET permission: files never leave the phone.
 
 - **Replace** mode: smaller file takes the original's place, original kept in the Bin (7/15/30 days), one-tap restore. Original file dates are put back so the gallery order doesn't change.
 - **Keep both** mode: smaller copy in `Pictures/SpaceBachao`, `Movies/SpaceBachao` or `Download/SpaceBachao`.
-- **Free:** unlimited photos, 3 videos + 2 PDFs per day. **Pro** (one-time, Google Play Billing 8, product id `pro_lifetime`): unlimited, all quality modes, longer Bin.
+- **Free:** up to 5 GB of files (all types together). **Pro** subscription (Google Play Billing 8, product id `space_bachao_pro`, base plans `monthly`/`yearly`): unlimited, all quality modes, longer Bin.
+- Test builds (`preview`, `debug`) have Pro unlocked (`BuildConfig.DEV_PRO`); the Play Store `release` build never does.
 
 ## Builds
 GitHub Actions (`.github/workflows/build.yml`) builds on every push to `space-bachao`:
-- `SpaceBachao.apk` – **preview** build (minified like release, signed with the checked-in test key). For testing on your phone. Published as a GitHub Release.
+- `SpaceBachao.apk` – **preview** build (minified like release, signed with the checked-in test key, Pro unlocked). For the developer's phone only.
 - `SpaceBachao-unsigned.aab` – Play Store bundle, signed afterwards with the private upload key (`jarsigner`).
 
 Local build: open in Android Studio, or `./gradlew assemblePreview bundleRelease`.
