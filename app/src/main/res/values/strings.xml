@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ReelRok</string>
+    <string name="service_label">ReelRok Blocker</string>
+    <string name="service_description">YouTube Shorts aur Instagram Reels ki screen pehchaan ke use band karta hai. Koi data collect ya bheja nahi jaata.</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lal play-button jisme slash -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF3B5C"
+        android:pathData="M38,32 h32 a8,8 0 0 1 8,8 v28 a8,8 0 0 1 -8,8 h-32 a8,8 0 0 1 -8,-8 v-28 a8,8 0 0 1 8,-8 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,44 L64,54 L48,64 Z" />
+    <path
+        android:strokeColor="#0B0B12"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M34,74 L74,34" />
+</vector>
