@@ -273,6 +273,42 @@ details.check input{accent-color:var(--up);width:16px;height:16px;margin-top:2px
 @keyframes tin{from{transform:translateY(-10px);opacity:0}}
 
 /* v4 additions */
+#splash{position:fixed;inset:0;z-index:100;background:#121826;display:grid;place-items:center;transition:opacity .45s ease,visibility .45s ease}
+#splash.out{opacity:0;visibility:hidden}
+.sp-logo{display:flex;flex-direction:column;align-items:center;gap:12px}
+.sp-logo svg{width:116px;height:116px;overflow:visible}
+.sp-c{transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(0);opacity:0;animation:spc .55s cubic-bezier(.2,.9,.3,1.25) forwards}
+.sp-c.c1{animation-delay:.1s}.sp-c.c2{animation-delay:.28s}.sp-c.c3{animation-delay:.46s}
+@keyframes spc{to{transform:scaleY(1);opacity:1}}
+.sp-line{stroke-dasharray:130;stroke-dashoffset:130;opacity:.9;animation:spl .7s ease-out .75s forwards}
+@keyframes spl{to{stroke-dashoffset:0}}
+.sp-word{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:46px;letter-spacing:-0.05em;color:#F4F6FA;opacity:0;transform:translateY(10px);animation:spw .5s ease-out .95s forwards}
+.sp-word em{font-style:normal;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#1A1204;background:#F4A72A;padding:4px 7px;border-radius:5px}
+.sp-tag{font-size:13.5px;color:rgba(244,246,250,.62);opacity:0;transform:translateY(6px);animation:spw .5s ease-out 1.15s forwards}
+@keyframes spw{to{opacity:1;transform:none}}
+#tour{position:fixed;inset:0;z-index:90}
+#tour[hidden]{display:none}
+.t-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(4,7,12,.74);border:2px solid var(--accent);transition:top .3s ease,left .3s ease,width .3s ease,height .3s ease;pointer-events:none}
+.t-card{position:fixed;width:min(330px,calc(100vw - 32px));background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 16px 40px rgba(0,0,0,.35);transition:top .3s ease,left .3s ease}
+.t-top{display:flex;justify-content:space-between;align-items:center}
+.t-step{font:700 11px var(--mono);letter-spacing:.08em;color:var(--accent-ink)}
+.t-skip{font-size:12.5px;font-weight:700;color:var(--muted)}
+.t-card b{font-family:var(--display);font-size:18px;letter-spacing:-0.02em}
+.t-card p{font-size:14px;line-height:1.5;color:var(--muted)}
+.t-act{display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:4px}
+.t-act .btn{padding:10px}
+.lev{gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}
+.lev-h{display:flex;justify-content:space-between;align-items:center}
+.lev-h b{font-size:20px;font-weight:800}
+.lv-mid{color:var(--accent-ink)}
+#levR{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;--p:10%}
+#levR::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--up),var(--accent) 45%,var(--down));}
+#levR::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;background:#fff;border:3px solid var(--text);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#levR::-moz-range-track{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--up),var(--accent) 45%,var(--down))}
+#levR::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--text)}
+.lev-pre{display:flex;gap:6px;flex-wrap:wrap}
+.lev-pre button{flex:1;min-width:40px;padding:6px 4px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:600 12px var(--mono)}
+.lev-pre button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
 body,.top,.tabs,.card,.watch,.list,.idx,.sheet,.seg,.inp,.ch-top,.ch-tools,.trade-bar,.ch-pos,.cv-wrap{transition:background-color .2s ease,border-color .2s ease,color .2s ease}
 .part-seg{border-radius:14px;padding:4px}.part-seg button{padding:10px 8px;font-size:14px;border-radius:10px}
 .fab{position:fixed;right:16px;bottom:90px;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:58px;height:58px;border-radius:19px;background:var(--hero);color:#F4F6FA;box-shadow:0 10px 26px rgba(17,23,34,.3);border:1px solid rgba(255,255,255,.1);transition:bottom .2s ease}
@@ -335,10 +371,23 @@ body,.top,.tabs,.card,.watch,.list,.idx,.sheet,.seg,.inp,.ch-top,.ch-tools,.trad
   .hero h2{font-size:38px}
 }
 @media (max-width:380px){.oc-head{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:1fr 1fr}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.sp-c,.sp-word,.sp-tag{opacity:1!important;transform:none!important}.sp-line{stroke-dashoffset:0!important}}
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true">
+  <div class="sp-logo">
+    <svg viewBox="0 0 96 96">
+      <g class="sp-c c1"><line x1="22" y1="36" x2="22" y2="80" stroke="#F0525B" stroke-width="4" stroke-linecap="round"/><rect x="13" y="44" width="18" height="26" rx="4" fill="#F0525B"/></g>
+      <g class="sp-c c2"><line x1="48" y1="22" x2="48" y2="70" stroke="#1FC48D" stroke-width="4" stroke-linecap="round"/><rect x="39" y="30" width="18" height="30" rx="4" fill="#1FC48D"/></g>
+      <g class="sp-c c3"><line x1="74" y1="8" x2="74" y2="58" stroke="#F4A72A" stroke-width="4" stroke-linecap="round"/><rect x="65" y="14" width="18" height="34" rx="4" fill="#F4A72A"/></g>
+      <path class="sp-line" d="M6 88 L34 72 L56 76 L92 34" stroke="#F4F6FA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div class="sp-word">teji<em>paper</em></div>
+    <div class="sp-tag">Practise trading. Zero risk.</div>
+  </div>
+</div>
+<div id="tour" hidden><div class="t-hole" id="tHole"></div><div class="t-card" id="tCard" role="dialog" aria-live="polite"><div class="t-top"><span class="t-step" id="tStep"></span><button class="t-skip" id="tSkip">Skip</button></div><b id="tTitle"></b><p id="tText"></p><div class="t-act"><button class="btn ghost" id="tBack">Back</button><button class="btn acc" id="tNext">Next</button></div></div></div>
 <div id="app">
   <header class="top">
     <div class="brand">
@@ -375,6 +424,7 @@ body,.top,.tabs,.card,.watch,.list,.idx,.sheet,.seg,.inp,.ch-top,.ch-tools,.trad
           <span><b style="font-size:15px;display:block">New to trading?</b><span class="mut" style="font-size:13px">15 short lessons, from candlesticks to options and crypto, each with a quiz.</span></span>
           <span class="tag" style="background:var(--accent);color:#1A1204;border-color:var(--accent-ink)">LEARN →</span>
         </button>
+        <button class="btn ghost" data-tour>New here? Take the 1-minute app tour</button>
       </div>
     </section>
 
@@ -449,6 +499,7 @@ body,.top,.tabs,.card,.watch,.list,.idx,.sheet,.seg,.inp,.ch-top,.ch-tools,.trad
       <div class="pad">
         <div class="lhero">
           <h2 style="font-size:28px;font-weight:800;letter-spacing:-0.03em">Learn to trade, step by step</h2>
+          <button class="btn acc" data-tour style="align-self:flex-start">Take the 1-minute app tour</button>
           <p class="mut" style="font-size:14px">Each lesson ends with a quiz and a button to practise the idea on the chart. Answer correctly to complete the lesson.</p>
           <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span id="progTxt"></span><span class="mut">Progress</span></div>
           <div class="prog"><i id="progBar"></i></div>
@@ -512,7 +563,7 @@ const TICK=0.05;
 const rt=p=>{if(CRYPTO){const d=decFor(p),m=Math.pow(10,d);return Math.max(1/m,Math.round(p*m)/m);}return Math.max(TICK,Math.round(p/TICK)*TICK);};
 const CHG=20, YEAR=365*86400000, DAY=86400000;
 const feeOf=(qty,px)=>CRYPTO?qty*px*0.001:CHG;
-const prodName=c=>CRYPTO?(c==='MIS'?'FUTURES 10×':'SPOT'):(c||'');
+const prodName=c=>CRYPTO?(c==='MIS'?'FUTURES':'SPOT'):(c||'');
 const isFO=i=>i.kind==='fut'||i.kind==='opt';
 const spotLike=i=>i.kind==='eq'||i.kind==='crypto';
 const C={grid:'rgba(139,152,173,0.09)',axis:'#8B98AD',up:'#1FC48D',down:'#F0525B',accent:'#F4A72A',blue:'#5FA2FF',text:'#E8EDF5',violet:'#B48CFF',pink:'#F07AD8',panel:'#111824',bg:'#0A0F17',line:'#22304A'};
@@ -675,9 +726,16 @@ const IND=[
 ];
 
 /* ================= account engine ================= */
-function marginReq(inst,product,qty,px,dir){
-  if(inst.kind==='crypto') return product==='MIS'?qty*px*0.1:qty*px;
-  if(inst.kind==='eq') return product==='MIS'?qty*px*0.2:qty*px;
+function levAllowed(inst,product){return !!inst&&(inst.kind==='crypto'||inst.kind==='eq')&&product==='MIS';}
+function maxLev(inst){return inst.kind==='crypto'?100:5;}
+function defaultLev(inst,product){return levAllowed(inst,product)?(inst.kind==='crypto'?10:5):null;}
+function levPresets(inst){return inst.kind==='crypto'?[1,2,5,10,25,50,100]:[1,2,3,4,5];}
+const MMR=i=>i.kind==='crypto'?0.005:0;
+function liqFor(inst,entry,lev,dir){if(!lev||(dir>0&&lev<=1))return null;const m=MMR(inst);return rt(dir>0?entry*(1-1/lev+m):entry*(1+1/lev-m));}
+function effLev(p){return p.margin>0?Math.abs(p.qty)*p.avg/p.margin:0;}
+function liqPrice(p){const i=getInst(p.sym);if(!levAllowed(i,p.product)||!(p.margin>0))return null;return liqFor(i,p.avg,effLev(p),Math.sign(p.qty));}
+function marginReq(inst,product,qty,px,dir,lev){
+  if(spotLike(inst)){if(product!=='MIS') return qty*px; const L=lev||defaultLev(inst,product); return qty*px/L;}
   if(inst.kind==='fut') return qty*px*(product==='MIS'?0.09:0.13);
   if(dir>0) return qty*px;
   return qty*INST[inst.und].price*(product==='MIS'?0.09:0.13);
@@ -711,16 +769,16 @@ function execOrder(o,px,reason){
   if(openQ>0){
     if(spotLike(inst)&&o.product==='CNC'&&dir<0) return {ok:false,msg:CRYPTO?'Spot cannot be sold short. Choose Futures to short.':'Short selling is not allowed in Delivery (CNC). Choose Intraday (MIS).'};
     let freed=0; if(closeQ){const d=Math.sign(p.qty);freed=p.margin*closeQ/Math.abs(p.qty)+(px-p.avg)*closeQ*d;}
-    const need=marginReq(inst,o.product,openQ,px,dir);
+    const need=marginReq(inst,o.product,openQ,px,dir,o.lev);
     if(need+feeOf(openQ,px)>S.cash+freed) return {ok:false,msg:`Insufficient margin: ${inr0(need)} required, ${inr0(Math.max(0,S.cash+freed))} available.`};
   }
   if(closeQ){closePart(p,closeQ,px,reason||'Manual'); if(p.qty===0){S.positions=S.positions.filter(x=>x!==p);p=null;}}
   if(openQ>0){
-    const need=marginReq(inst,o.product,openQ,px,dir);
+    const need=marginReq(inst,o.product,openQ,px,dir,o.lev);
     S.cash-=need;
     if(!p){p={id:S.seq++,sym:o.sym,product:o.product,qty:0,avg:px,margin:0,sl:null,tgt:null,risk1:null,t:sim.now,exp:inst.kind==='opt'?inst.exp:null};S.positions.push(p);}
     const nq=+(p.qty+dir*openQ).toFixed(8); p.avg=(p.avg*Math.abs(p.qty)+px*openQ)/Math.abs(nq); p.qty=nq; p.margin+=need;
-    if(o.sl!=null) p.sl=o.sl; if(o.tgt!=null) p.tgt=o.tgt;
+    if(o.sl!=null) p.sl=o.sl; if(o.tgt!=null) p.tgt=o.tgt; if(levAllowed(inst,o.product)) p.lev=o.lev||defaultLev(inst,o.product);
     p.risk1=p.sl!=null?Math.abs(p.avg-p.sl):null;
   }
   const fee=feeOf(o.qty,px); S.cash-=fee; S.charges+=fee;
@@ -734,8 +792,13 @@ function exitPos(p,q,reason){
   q=q||Math.abs(p.qty);
   const o={id:S.seq++,t:sim.now,sym:p.sym,product:p.product,side:p.qty>0?'SELL':'BUY',qty:q,type:'MARKET'};
   const px=price(p.sym), r=execOrder(o,px,reason);
-  if(r.ok){logHist(o,'Executed',px,reason);toast(`${reason==='Manual'?'Exited':reason==='Auto square-off'?'Squared off':reason+' hit'}: ${p.sym} ${qtyTxt(p.sym,q)} @ ${f2(px)}`,reason==='Stop loss'?'err':'ok');}
+  if(r.ok){logHist(o,'Executed',px,reason);toast(`${reason==='Manual'?'Exited':reason==='Auto square-off'?'Squared off':reason==='Liquidation'?'Liquidated':reason+' hit'}: ${p.sym} ${qtyTxt(p.sym,q)} @ ${f2(px)}`,reason==='Stop loss'?'err':'ok');}
   else {logHist(o,'Rejected',null,r.msg);toast(r.msg,'err');}
+}
+function liquidate(p,lq){
+  const o={id:S.seq++,t:sim.now,sym:p.sym,product:p.product,side:p.qty>0?'SELL':'BUY',qty:Math.abs(p.qty),type:'MARKET'};
+  const r=execOrder(o,lq,'Liquidation');
+  if(r.ok){logHist(o,'Executed',lq,'Liquidated');toast(`Liquidated: ${p.sym} ${qtyTxt(p.sym,o.qty)} closed at ${f2(lq)}. Margin lost.`,'err');}
 }
 function processOrders(){
   for(const o of [...S.orders]){
@@ -749,7 +812,8 @@ function processOrders(){
     else {logHist(o,'Rejected',null,r.msg);toast('Order rejected: '+r.msg,'err');}
   }
   for(const p of [...S.positions]){
-    const l=price(p.sym);
+    const l=price(p.sym), lq=liqPrice(p);
+    if(lq!=null&&((p.qty>0&&l<=lq)||(p.qty<0&&l>=lq))){liquidate(p,lq);continue;}
     if(p.sl!=null&&((p.qty>0&&l<=p.sl)||(p.qty<0&&l>=p.sl))) exitPos(p,0,'Stop loss');
     else if(p.tgt!=null&&((p.qty>0&&l>=p.tgt)||(p.qty<0&&l<=p.tgt))) exitPos(p,0,'Target');
   }
@@ -999,6 +1063,7 @@ function drawChart(){
     const sl=ch.drag&&ch.drag.ref===p&&ch.drag.kind==='sl'?ch.drag.p:p.sl, tg=ch.drag&&ch.drag.ref===p&&ch.drag.kind==='tgt'?ch.drag.p:p.tgt;
     if(sl!=null) hl(sl,C.down,`SL ${sinr((sl-p.avg)*p.qty)}  ⇕`,true,'sl',p);
     if(tg!=null) hl(tg,C.up,`TGT ${sinr((tg-p.avg)*p.qty)}  ⇕`,true,'tgt',p);
+    {const lq=liqPrice(p); if(lq!=null) hl(lq,'#B48CFF',`LIQUIDATION · ${effLev(p).toFixed(0)}×`,true);}
   });
   S.orders.filter(o=>o.sym===ch.sym).forEach(o=>{
     const pv=ch.drag&&ch.drag.ref===o?ch.drag.p:(o.type==='LIMIT'?o.price:o.trig);
@@ -1186,7 +1251,7 @@ function renderPortfolio(force){
     const PS=S.positions.filter(p=>!isHolding(p));
     const sig='pos|'+PS.map(p=>p.id+':'+p.qty+':'+p.sl+':'+p.tgt).join(',');
     if(force||B.dataset.sig!==sig){B.dataset.sig=sig;
-      B.innerHTML=PS.length?`<div class="list">${PS.map(p=>`<div class="pos"><div class="r1"><div><b>${esc(p.sym)}</b> <span class="tag">${prodName(p.product)}</span> <span class="tag" style="color:${p.qty>0?C.up:C.down}">${p.qty>0?'LONG':'SHORT'}</span><div class="meta" style="margin-top:4px">${qtyTxt(p.sym,Math.abs(p.qty))} × ${f2(p.avg)} → <span id="pl-${p.id}"></span></div></div><div class="pnl" id="pp-${p.id}"></div></div><div class="chips">${p.sl!=null?`<span class="chip sl">SL ${f2(p.sl)}</span>`:'<span class="chip" style="color:var(--accent-ink)">No SL</span>'}${p.tgt!=null?`<span class="chip tg">TGT ${f2(p.tgt)}</span>`:''}<span class="chip">Margin ${inr0(p.margin)}</span></div><div class="acts"><button data-chart="${esc(p.sym)}">Chart</button><button data-mod="${p.id}">SL / Target</button><button class="x" data-exit="${p.id}">Exit</button></div></div>`).join('')}</div><button class="btn ghost big" id="exitAll" style="margin-top:12px;color:var(--down)">Exit all positions</button>`
+      B.innerHTML=PS.length?`<div class="list">${PS.map(p=>`<div class="pos"><div class="r1"><div><b>${esc(p.sym)}</b> <span class="tag">${prodName(p.product)}</span> <span class="tag" style="color:${p.qty>0?C.up:C.down}">${p.qty>0?'LONG':'SHORT'}</span><div class="meta" style="margin-top:4px">${qtyTxt(p.sym,Math.abs(p.qty))} × ${f2(p.avg)} → <span id="pl-${p.id}"></span></div></div><div class="pnl" id="pp-${p.id}"></div></div><div class="chips">${p.sl!=null?`<span class="chip sl">SL ${f2(p.sl)}</span>`:'<span class="chip" style="color:var(--accent-ink)">No SL</span>'}${p.tgt!=null?`<span class="chip tg">TGT ${f2(p.tgt)}</span>`:''}${liqPrice(p)!=null?`<span class="chip" style="color:#9B6BFF;border-color:rgba(155,107,255,.45)">${effLev(p).toFixed(0)}× · Liq ${f2(liqPrice(p))}</span>`:''}<span class="chip">Margin ${inr0(p.margin)}</span></div><div class="acts"><button data-chart="${esc(p.sym)}">Chart</button><button data-mod="${p.id}">SL / Target</button><button class="x" data-exit="${p.id}">Exit</button></div></div>`).join('')}</div><button class="btn ghost big" id="exitAll" style="margin-top:12px;color:var(--down)">Exit all positions</button>`
       :`<div class="list"><div class="empty"><b style="color:var(--text);font-size:15px">No open positions</b><br>Intraday (MIS) and F&amp;O trades appear here. Delivery stocks are under Holdings.<br><button class="btn acc" data-go="chart" style="margin:14px auto 0">Open chart</button></div></div>`;}
     PS.forEach(p=>{const u=upnl(p);setNum('pl-'+p.id,f2(price(p.sym)));setNum('pp-'+p.id,sinr(u),'pnl '+cls(u));});
   } else if(PREF.pf==='ord'){
@@ -1226,8 +1291,61 @@ function applyTheme(){
   const cs=getComputedStyle(document.documentElement), v=n=>cs.getPropertyValue(n).trim();
   Object.assign(C,{grid:dark?'rgba(139,152,173,0.09)':'rgba(17,23,34,0.06)',axis:v('--muted'),up:v('--up'),down:v('--down'),text:v('--text'),line:v('--line'),panel:v('--panel'),bg:v('--bg'),blue:v('--blue'),cross:dark?'rgba(232,237,245,.45)':'rgba(17,23,34,.4)'});
   lastLegend=''; dirty();
-  try{if(window.TejiNative)window.TejiNative.setTheme(dark);}catch(e){}
+  if(!splashOn){try{if(window.TejiNative)window.TejiNative.setTheme(dark);}catch(e){}}
 }
+/* ---------- splash ---------- */
+let splashOn=true;
+const SPLASH_T0=performance.now(), SPLASH_MIN=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)?300:1700;
+function hideSplash(){
+  if(!splashOn) return;
+  const wait=Math.max(0,SPLASH_MIN-(performance.now()-SPLASH_T0));
+  setTimeout(()=>{
+    if(!splashOn) return; splashOn=false;
+    const el=$('#splash'); if(el){el.classList.add('out');setTimeout(()=>el.remove(),600);}
+    try{if(window.TejiNative)window.TejiNative.setTheme(PREF.theme==='dark');}catch(e){}
+    let seen=false; try{seen=!!localStorage.getItem('teji.tour.done');}catch(e){seen=true;}
+    if(!seen) setTimeout(()=>startTour(),650);
+  },wait);
+}
+setTimeout(hideSplash,9000);
+/* ---------- quick guide ---------- */
+const TOUR=[
+ {scr:'markets',el:'#partSeg',t:'Stocks or crypto',d:'Switch between NSE stocks and 24×7 crypto. Each part has its own virtual wallet.'},
+ {scr:'markets',el:'.pcard',t:'Your portfolio',d:'Balance, total and today\'s profit or loss. Tap Add funds to top up your virtual money.'},
+ {scr:'markets',el:'.eq-chip',t:'Cash and add funds',d:'Your available cash. Tap the + to add more virtual money at any time.'},
+ {scr:'markets',el:'#themeBtn',t:'Light or dark',d:'Switch the whole app between light and dark mode.'},
+ {scr:'markets',el:'#watch',t:'Watchlist',d:'Live prices. Tap any stock or coin to open its chart.'},
+ {scr:'chart',el:'#tfSeg',t:'Timeframes',d:'Change the candle size from 1 minute to 1 day.'},
+ {scr:'chart',el:'#indBtn',t:'Indicators',d:'Add EMA, RSI, MACD, VWAP, Bollinger Bands and volume.'},
+ {scr:'chart',el:'#toolSeg',t:'Drawing tools',d:'Draw support and resistance lines or trend lines right on the chart.'},
+ {scr:'chart',el:'#cvWrap',t:'Live chart',d:'Drag to scroll, pinch to zoom, tap for the crosshair. Your entry, stop loss, target and liquidation lines appear here, and you can drag SL and TGT.'},
+ {scr:'chart',el:'.trade-bar',t:'Buy and sell',d:'Opens the order ticket: quantity, order type, stop loss, target and the leverage slider.'},
+ {scr:'chart',el:'#fab',t:'My orders',d:'Every open trade, pending order and today\'s fills, with a one-tap Exit button. It is on every screen.'},
+ {scr:'markets',el:'.tabs [data-go="portfolio"]',t:'Portfolio',d:'Holdings, positions, order history and your trading journal with win rate and P&L curve.'},
+ {scr:'markets',el:'.tabs [data-go="learn"]',t:'Learn',d:'Lessons with quizzes, from candlesticks to options and crypto. You can replay this tour from here.'},
+];
+let tourI=-1;
+function startTour(){closeSheet();tourI=0;$('#tour').hidden=false;showTour();}
+function endTour(){tourI=-1;$('#tour').hidden=true;try{localStorage.setItem('teji.tour.done','1');}catch(e){}go('markets');$('#scr-markets').scrollTop=0;}
+function showTour(){
+  const st=TOUR[tourI]; if(!st) return endTour();
+  if(cur!==st.scr) go(st.scr);
+  const el=$(st.el); if(!el||!el.getClientRects().length){tourI++;return showTour();}
+  const r0=el.getBoundingClientRect();
+  if(r0.top<60||r0.bottom>innerHeight-90) el.scrollIntoView({block:'center'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect(), pad=6, hole=$('#tHole'), card=$('#tCard');
+    const top=Math.max(4,r.top-pad), left=Math.max(4,r.left-pad), w=Math.min(innerWidth-8,r.width+pad*2), h=Math.min(innerHeight-8,r.height+pad*2);
+    Object.assign(hole.style,{top:top+'px',left:left+'px',width:w+'px',height:h+'px'});
+    $('#tStep').textContent=`STEP ${tourI+1} OF ${TOUR.length}`; $('#tTitle').textContent=st.t; $('#tText').textContent=st.d;
+    $('#tBack').style.visibility=tourI?'visible':'hidden'; $('#tNext').textContent=tourI===TOUR.length-1?'Start trading':'Next';
+    const ch2=card.offsetHeight||170, cw=card.offsetWidth||320;
+    let ct=top+h+12; if(ct+ch2>innerHeight-12) ct=top-ch2-12; if(ct<12) ct=Math.max(12,innerHeight-ch2-12);
+    const cl=Math.min(Math.max(16,r.left+r.width/2-cw/2),innerWidth-cw-16);
+    Object.assign(card.style,{top:ct+'px',left:cl+'px'});
+  },st.scr==='chart'?260:120);
+}
+window.addEventListener('resize',()=>{if(tourI>=0)showTour();});
 const MAXCAP=CRYPTO?1000000:100000000;
 const capLabel=a=>CRYPTO?(a>=1000000?(a/1000000)+'M':(a/1000)+'K'):(a>=10000000?(a/10000000)+' Cr':a>=100000?(a/100000)+'L':(a/1000)+'K');
 function openFunds(){
@@ -1265,7 +1383,8 @@ function openOrder(sym,side,opts={}){
   const ex=S.positions.find(p=>p.sym===sym&&(!opts.product||p.product===opts.product));
   const closing=!!ex&&Math.sign(ex.qty)!==dir;
   const units=opts.units!=null?opts.units:(closing?Math.abs(ex.qty)/lotOf(sym):(inst.kind==='crypto'?Math.max(inst.qs,floorTo(1000/l,inst.qs)):inst.kind==='eq'?Math.max(1,Math.floor(100000/l)):1));
-  ot={sym,side,product:opts.product||(ex?ex.product:(CRYPTO?'CNC':'MIS')),type:'MARKET',units,px:l,slOn:!closing,tgtOn:!closing,sl:null,tgt:null};
+  ot={sym,side,product:opts.product||(ex?ex.product:(CRYPTO?'CNC':'MIS')),type:'MARKET',units,px:l,slOn:!closing,tgtOn:!closing,sl:null,tgt:null,lev:null};
+  ot.lev=(ex&&ex.lev)||defaultLev(inst,ot.product);
   defaultSLT(); renderOT();
 }
 function renderOT(){
@@ -1273,7 +1392,11 @@ function renderOT(){
   openSheet('order',`
   <div class="ot-head ${ot.side}"><div><div class="ot-sym">${esc(ot.sym)}</div><div class="hint">LTP <b id="otLtp" style="color:var(--text)"></b> · ${CX?'USDT pair · fee 0.1%':F?'Lot '+inst.lot:'NSE equity'}</div></div>
   <div class="seg side-seg"><button data-side="BUY" class="b ${ot.side==='BUY'?'on':''}">Buy</button><button data-side="SELL" class="s ${ot.side==='SELL'?'on':''}">Sell</button></div></div>
-  <div class="field"><span class="flabel">PRODUCT</span><div class="seg full" id="otProd">${CX?`<button data-prod="CNC" class="${ot.product!=='MIS'?'on':''}">Spot</button><button data-prod="MIS" class="${ot.product==='MIS'?'on':''}">Futures · 10×</button>`:`<button data-prod="MIS" class="${ot.product==='MIS'?'on':''}">Intraday · MIS</button><button data-prod="${F?'NRML':'CNC'}" class="${ot.product!=='MIS'?'on':''}">${F?'Carry · NRML':'Delivery · CNC'}</button>`}</div></div>
+  <div class="field"><span class="flabel">PRODUCT</span><div class="seg full" id="otProd">${CX?`<button data-prod="CNC" class="${ot.product!=='MIS'?'on':''}">Spot</button><button data-prod="MIS" class="${ot.product==='MIS'?'on':''}">Futures · up to 100×</button>`:`<button data-prod="MIS" class="${ot.product==='MIS'?'on':''}">Intraday · MIS</button><button data-prod="${F?'NRML':'CNC'}" class="${ot.product!=='MIS'?'on':''}">${F?'Carry · NRML':'Delivery · CNC'}</button>`}</div></div>
+  ${levAllowed(inst,ot.product)?`<div class="field lev" id="levBox"><div class="lev-h"><span class="flabel">LEVERAGE</span><b id="levVal" class="num"></b></div>
+    <input type="range" id="levR" min="1" max="${maxLev(inst)}" step="1" value="${ot.lev}" aria-label="Leverage">
+    <div class="lev-pre">${levPresets(inst).map(v=>`<button data-lev="${v}" class="${v===ot.lev?'on':''}">${v}×</button>`).join('')}</div>
+    <span class="hint" id="levNote"></span></div>`:''}
   <div class="field"><span class="flabel">ORDER TYPE</span><div class="seg full" id="otType"><button data-otype="MARKET" class="${ot.type==='MARKET'?'on':''}">Market</button><button data-otype="LIMIT" class="${ot.type==='LIMIT'?'on':''}">Limit</button><button data-otype="SLM" class="${ot.type==='SLM'?'on':''}">SL-M</button></div></div>
   <div class="row2">
     <div class="field"><label for="otQty">${F?'LOTS':CX?'QUANTITY ('+ot.sym.replace('USDT','')+')':'QUANTITY'}</label><div class="stepper"><button data-q="-1" aria-label="Decrease">−</button><input class="inp" id="otQty" inputmode="${CX?'decimal':'numeric'}" value="${CX?fq(ot.units):ot.units}"><button data-q="1" aria-label="Increase">+</button></div><span class="hint" id="otQtyNote"></span></div>
@@ -1298,6 +1421,7 @@ function readOT(){
   const inst=getInst(ot.sym), F=isFO(inst);
   ot.units=inst.kind==='crypto'?Math.max(0,floorTo(parseFloat($('#otQty').value)||0,inst.qs)):Math.max(0,parseInt($('#otQty').value,10)||0);
   const px=parseFloat($('#otPx').value); if(ot.type!=='MARKET'&&px>0) ot.px=px;
+  if($('#levR')) ot.lev=Math.max(1,Math.min(maxLev(inst),parseInt($('#levR').value,10)||1));
   ot.slOn=$('#otSlOn').checked; ot.tgtOn=$('#otTgtOn').checked;
   const sl=parseFloat($('#otSl').value), tg=parseFloat($('#otTgt').value);
   ot.sl=isFinite(sl)?sl:null; ot.tgt=isFinite(tg)?tg:null;
@@ -1308,8 +1432,14 @@ function updateOT(){
   const {qty,F,inst}=readOT(), l=price(ot.sym), e=entryRef(), dir=ot.side==='BUY'?1:-1, eq=equity();
   $('#otLtp').textContent=f2(l);
   $('#otQtyNote').textContent=F?`= ${qty} qty`:`≈ ${CRYPTO?inr(qty*e):inr0(qty*e)}`;
-  const need=marginReq(inst,ot.product,qty,e,dir);
+  const LV=levAllowed(inst,ot.product)?ot.lev:null, need=marginReq(inst,ot.product,qty,e,dir,LV), liq=LV?liqFor(inst,e,LV,dir):null;
   const warns=[]; let blocked=false;
+  if(LV&&$('#levVal')){
+    const lv=$('#levVal'); lv.textContent=LV+'×'; lv.className='num '+(LV<=5?'up':LV<=20?'lv-mid':'dn');
+    const pc=Math.min(100,(LV-1)/(maxLev(inst)-1||1)*100); $('#levR').style.setProperty('--p',pc+'%');
+    $$('#levBox .lev-pre button').forEach(b=>b.classList.toggle('on',+b.dataset.lev===LV));
+    $('#levNote').textContent=liq!=null?`A ${(Math.abs(e-liq)/e*100).toFixed(1)}% move against you liquidates this position.`:'At 1× a long position cannot be liquidated.';
+  }
   if(!CRYPTO&&LIVE&&ot.product==='MIS'&&istNow().hm>=920&&istNow().wd>0&&istNow().wd<6&&mktState==='OPEN'){warns.push(['err','New intraday (MIS) orders are not allowed after 15:20 IST. Choose Delivery (CNC) or Carry (NRML).']);blocked=true;}
   if(LIVE&&mktState!=='OPEN'){if(ot.type==='MARKET'){warns.push(['err','The market is closed. Switch to Limit or SL-M to queue an order for the next session.']);blocked=true;}else warns.push(['','The market is closed. This order will queue and can fill once trading resumes at 09:15 IST.']);}
   let risk=null,reward=null;
@@ -1322,7 +1452,9 @@ function updateOT(){
   if(!qty){warns.push(['err',CRYPTO?`Minimum quantity is ${fq(inst.qs)}`:'Quantity must be at least 1']);blocked=true;}
   if(ot.type!=='MARKET'&&!(ot.px>0)){warns.push(['err','Enter a price']);blocked=true;}
   const ex=S.positions.find(p=>p.sym===ot.sym&&p.product===ot.product), reducing=ex&&Math.sign(ex.qty)!==dir;
-  if(!reducing&&need+feeOf(qty,e)>S.cash){warns.push(['err',`Insufficient margin: ${inr0(need)} required, ${inr0(S.cash)} available. Reduce the quantity${inst.kind==='eq'&&ot.product!=='MIS'?' or switch to Intraday (MIS)':CRYPTO&&ot.product!=='MIS'?' or switch to Futures (10×)':''}.`]);}
+  if(LV&&!reducing&&liq!=null&&ot.slOn&&ot.sl!=null&&(dir>0?ot.sl<=liq:ot.sl>=liq)){warns.push(['err',`Your stop loss (${f2(ot.sl)}) is beyond the liquidation price (${f2(liq)}). Lower the leverage or move the stop closer.`]);blocked=true;}
+  if(LV&&!reducing&&LV>=25) warns.push(['',`High leverage (${LV}×): a ${(100/LV).toFixed(1)}% move against you wipes out the margin.`]);
+  if(!reducing&&need+feeOf(qty,e)>S.cash){warns.push(['err',`Insufficient margin: ${inr0(need)} required, ${inr0(S.cash)} available. Reduce the quantity${inst.kind==='eq'&&ot.product!=='MIS'?' or switch to Intraday (MIS)':CRYPTO&&ot.product!=='MIS'?' or switch to Futures with leverage':''}.`]);}
   if(spotLike(inst)&&ot.product==='CNC'&&dir<0&&!reducing){warns.push(['err',CRYPTO?'Spot cannot be sold short. Choose Futures to short.':'Short selling is not allowed in Delivery (CNC). Choose Intraday (MIS).']);blocked=true;}
   const rp=risk!=null?risk/eq*100:null;
   if(!ot.slOn&&!reducing) warns.push(['','Without a stop loss, your downside is open-ended. Keep a stop on every trade.']);
@@ -1331,7 +1463,7 @@ function updateOT(){
   if(ot.type==='LIMIT'&&(dir>0?ot.px>=l:ot.px<=l)) warns.push(['','This limit price is already marketable. The order will fill immediately at LTP.']);
   if(ot.type==='SLM'&&(dir>0?ot.px<=l:ot.px>=l)) warns.push(['','The trigger has already been crossed. The order will fill immediately at market.']);
   const r=(k,v,c='')=>`<div class="r"><span>${k}</span><span class="${c}">${v}</span></div>`;
-  $('#otSum').innerHTML=r('Order value',inr(qty*e))+r(reducing?'Margin':'Margin required',reducing?'Released on exit':inr(need))+r('Available cash',inr(S.cash))+(CRYPTO?r('Fee (0.1%)',inr(qty*e*0.001)):r('Charges (flat)','₹20'))+
+  $('#otSum').innerHTML=r('Order value',inr(qty*e))+(LV&&!reducing?r('Leverage',LV+'×'):'')+r(reducing?'Margin':'Margin required',reducing?'Released on exit':inr(need))+(LV&&!reducing&&liq!=null?r('Liquidation price',`${f2(liq)} (${(Math.abs(e-liq)/e*100).toFixed(1)}% away)`,'dn'):'')+r('Available cash',inr(S.cash))+(CRYPTO?r('Fee (0.1%)',inr(qty*e*0.001)):r('Charges (flat)','₹20'))+
     (risk!=null?r('Max loss at SL',`−${CUR}${f2(risk)} (${rp.toFixed(2)}%)`,'dn'):'')+(reward!=null?r('Profit at target',`+${CUR}${f2(reward)}`,'up'):'')+(risk&&reward?r('Risk : Reward',`1 : ${(reward/risk).toFixed(2)}`):'');
   $('#otWarn').innerHTML=warns.map(([k,m])=>`<div class="warn ${k}">${m}</div>`).join('');
   const b=$('#otGo'); b.disabled=blocked;
@@ -1339,7 +1471,7 @@ function updateOT(){
 }
 function placeOT(){
   const {qty}=readOT(); updateOT(); if($('#otGo').disabled) return;
-  const o={id:S.seq++,t:sim.now,sym:ot.sym,product:ot.product,side:ot.side,qty,type:ot.type,price:ot.type==='LIMIT'?ot.px:null,trig:ot.type==='SLM'?ot.px:null,sl:ot.slOn?rt(ot.sl):null,tgt:ot.tgtOn?rt(ot.tgt):null};
+  const o={id:S.seq++,t:sim.now,sym:ot.sym,product:ot.product,side:ot.side,qty,type:ot.type,price:ot.type==='LIMIT'?ot.px:null,trig:ot.type==='SLM'?ot.px:null,sl:ot.slOn?rt(ot.sl):null,tgt:ot.tgtOn?rt(ot.tgt):null,lev:levAllowed(getInst(ot.sym),ot.product)?ot.lev:null};
   const l=price(o.sym), dir=o.side==='BUY'?1:-1;
   if(LIVE&&mktState!=='OPEN'){
     if(o.type==='MARKET'){toast('The market is closed. Use a Limit or SL-M order to queue it for the next session.','err');return;}
@@ -1402,7 +1534,7 @@ function bookBody(){
   if(bookTab==='open'){
     if(!d.open.length) return `<div class="empty">No open trades.<br>Positions and holdings appear here as soon as an order fills.</div>`;
     const nonH=d.open.filter(p=>!isHolding(p)).length;
-    return d.open.map(p=>`<div class="bk-row"><div class="r1"><div><b class="s">${esc(p.sym)}</b> <span class="tag">${prodName(p.product)}</span> <span class="tag" style="color:${p.qty>0?C.up:C.down}">${isHolding(p)?'HOLDING':p.qty>0?'LONG':'SHORT'}</span><div class="meta" style="margin-top:4px">${qtyTxt(p.sym,Math.abs(p.qty))} × ${f2(p.avg)} → <span id="bkl-${p.id}"></span></div>${p.sl!=null||p.tgt!=null?`<div class="meta" style="margin-top:2px">${p.sl!=null?'SL '+f2(p.sl):''}${p.sl!=null&&p.tgt!=null?' · ':''}${p.tgt!=null?'TGT '+f2(p.tgt):''}</div>`:''}</div><div class="pnl" id="bkp-${p.id}"></div></div><div class="acts"><button data-chart="${esc(p.sym)}">Chart</button><button data-mod="${p.id}">SL / TGT</button><button class="bk-exit" data-exit="${p.id}">Exit</button></div></div>`).join('')
+    return d.open.map(p=>`<div class="bk-row"><div class="r1"><div><b class="s">${esc(p.sym)}</b> <span class="tag">${prodName(p.product)}</span> <span class="tag" style="color:${p.qty>0?C.up:C.down}">${isHolding(p)?'HOLDING':p.qty>0?'LONG':'SHORT'}</span><div class="meta" style="margin-top:4px">${qtyTxt(p.sym,Math.abs(p.qty))} × ${f2(p.avg)} → <span id="bkl-${p.id}"></span></div>${p.sl!=null||p.tgt!=null?`<div class="meta" style="margin-top:2px">${p.sl!=null?'SL '+f2(p.sl):''}${p.sl!=null&&p.tgt!=null?' · ':''}${p.tgt!=null?'TGT '+f2(p.tgt):''}</div>`:''}${liqPrice(p)!=null?`<div class="meta" style="margin-top:2px;color:#9B6BFF">${effLev(p).toFixed(0)}× · Liquidation ${f2(liqPrice(p))}</div>`:''}</div><div class="pnl" id="bkp-${p.id}"></div></div><div class="acts"><button data-chart="${esc(p.sym)}">Chart</button><button data-mod="${p.id}">SL / TGT</button><button class="bk-exit" data-exit="${p.id}">Exit</button></div></div>`).join('')
       +(nonH>1?`<button class="btn ghost big" id="exitAll" style="margin-top:8px;color:var(--down)">Exit all positions (${nonH})</button>`:'')
       +`<p class="note" style="margin-top:8px">Exit closes the whole trade at the market price. Holdings stay until you exit them yourself.</p>`;
   }
@@ -1489,7 +1621,7 @@ const LESSONS=[
  {id:'risk',t:'Risk management: the 1% rule',tag:'Strategy',m:5,svg:'',b:`<ul><li><b>The 1% rule</b>: risk no more than 1–2% of capital on a single trade. Ten consecutive losses then cost about 10%.</li><li><b>With 2:1 reward to risk</b>, a 40% win rate is profitable: over 10 trades, 4 × 2R − 6 × 1R = <b>+2R</b>.</li><li><b>Position size</b> = (capital × risk %) ÷ (entry − stop).</li><li><b>Daily loss limit</b>: set one, for example 3%. When it is hit, stop trading for the day.</li><li><b>Leverage</b> amplifies losses as much as gains. At 5× intraday leverage, losses accrue five times faster.</li></ul><div class="box">Use the position size calculator below, or the "risk 1%" link in the order ticket.</div>`,q:{q:'Capital ₹5,00,000, risk 1%, entry 200, stop 195. What quantity?',o:['1,000','500','2,500'],a:0,w:'Risk = ₹5,000. Risk per share = ₹5. Quantity = 5,000 ÷ 5 = 1,000.'},tr:{l:'Open the calculator',go:'calc'}},
  {id:'options',t:'Options basics: calls, puts, strikes',tag:'F&O',m:6,svg:'options',b:`<ul><li><b>Call (CE)</b>: gains when the underlying rises. <b>Put (PE)</b>: gains when it falls.</li><li><b>Strike</b>: the contract's reference price. <b>Premium</b>: the price the buyer pays for the option.</li><li><b>Lot size</b>: options trade in lots. NIFTY is 65 and BANKNIFTY is 30, the NSE sizes since January 2026. NSE revises lot sizes periodically.</li><li><b>ATM</b>: strike near the spot. <b>ITM</b>: has intrinsic value. <b>OTM</b>: time value only.</li><li><b>Buyers</b> risk only the premium and have open-ended upside, but time decay works against them.</li><li><b>Sellers</b> collect premium, carry larger risk and post higher margin.</li><li>At expiry, OTM options are worth zero. NIFTY has weekly expiries every Tuesday; BANKNIFTY expires monthly on the last Tuesday.</li></ul>`,q:{q:'NIFTY is at 25,800. What is the 26,000 CE?',o:['In the money','Out of the money','At the money'],a:1,w:'A call is in the money only when spot is above the strike. 25,800 is below 26,000, so it is out of the money.'},tr:{l:'Open the option chain',go:'options'}},
  {id:'greeks',t:'Greeks: Delta, Theta, IV',tag:'F&O',m:5,svg:'greeks',b:`<ul><li><b>Delta (Δ)</b>: how much the premium moves for a ₹1 move in the underlying. ATM options have a delta near 0.5. The chain shows delta under each LTP.</li><li><b>Theta</b>: daily time decay. It accelerates as expiry approaches, which is why option buyers need the move to happen quickly.</li><li><b>IV (implied volatility)</b>: how much movement the market expects. Higher IV means more expensive premiums. IV typically collapses after results or major events.</li></ul><div class="box">Experiment (simulated mode): buy an OTM option, set speed to 300×, and watch the premium decay while NIFTY moves sideways.</div>`,q:{q:'All else equal, what happens to an OTM option premium as expiry approaches?',o:['It rises','It falls quickly (theta decay)','It stays the same'],a:1,w:'An OTM option holds only time value, and that value moves toward zero as time runs out.'},tr:{l:'See delta in the option chain',go:'options'}},
- {id:'crypto',t:'Crypto basics: spot, futures, 24×7',tag:'Crypto',m:4,svg:'',b:`<ul><li><b>24×7 market</b>: crypto never closes, so prices move on weekends and at night. Plan when you will and will not trade.</li><li><b>USDT pairs</b>: BTC/USDT is priced in Tether, a dollar-pegged stablecoin. Teji's crypto part uses a separate $10,000 virtual wallet.</li><li><b>Spot</b>: you buy the actual coin with full payment. You can only sell what you own.</li><li><b>Futures (10×)</b>: you post 10% margin and can go long or short. A 10% move against you wipes out the margin, so always use a stop loss.</li><li><b>Fees</b>: Teji charges 0.1% of trade value on each order, similar to major exchanges.</li><li><b>Volatility</b>: Bitcoin often moves 2–5% in a day and smaller coins far more. Size positions smaller than you would for stocks.</li></ul><div class="box">In India, crypto gains are taxed at 30% with 1% TDS on transfers. Check current rules before trading real money.</div>`,q:{q:'With 10× futures leverage, roughly what move against you wipes out your margin?',o:['1%','10%','50%'],a:1,w:'At 10× leverage your margin is 10% of the position, so a 10% adverse move consumes all of it.'},tr:{l:'Practise on the chart',go:'chart'}},
+ {id:'crypto',t:'Crypto basics: spot, futures, 24×7',tag:'Crypto',m:4,svg:'',b:`<ul><li><b>24×7 market</b>: crypto never closes, so prices move on weekends and at night. Plan when you will and will not trade.</li><li><b>USDT pairs</b>: BTC/USDT is priced in Tether, a dollar-pegged stablecoin. Teji's crypto part uses a separate $10,000 virtual wallet.</li><li><b>Spot</b>: you buy the actual coin with full payment. You can only sell what you own.</li><li><b>Futures</b>: pick leverage from 1× to 100× with the slider in the order ticket, and go long or short. At 10× you post 10% margin, and a 10% move against you liquidates the position. The ticket and chart show the exact liquidation price, so keep your stop loss well before it.</li><li><b>Fees</b>: Teji charges 0.1% of trade value on each order, similar to major exchanges.</li><li><b>Volatility</b>: Bitcoin often moves 2–5% in a day and smaller coins far more. Size positions smaller than you would for stocks.</li></ul><div class="box">In India, crypto gains are taxed at 30% with 1% TDS on transfers. Check current rules before trading real money.</div>`,q:{q:'With 10× futures leverage, roughly what move against you wipes out your margin?',o:['1%','10%','50%'],a:1,w:'At 10× leverage your margin is 10% of the position, so a 10% adverse move consumes all of it.'},tr:{l:'Practise on the chart',go:'chart'}},
  {id:'psych',t:'Trading psychology and journaling',tag:'Mindset',m:4,svg:'',b:`<ul><li><b>FOMO</b>: chasing a move after it has run. If it is not in your plan, let it go; another setup will come.</li><li><b>Revenge trading</b>: sizing up immediately after a loss. It is one of the fastest ways to damage an account.</li><li><b>Overtrading</b>: two or three quality setups a day are enough. Watch how the ₹20 charges accumulate.</li><li><b>Respect your stop</b>: taking small losses is a skill.</li><li><b>Journal</b>: Portfolio → Journal shows win rate, average R and profit factor. After 30 or more trades, review which setups actually work.</li></ul><div class="box">Before trading real money, aim for two to three months of consistently positive paper results.</div>`,q:{q:'After three consecutive losses, what is the best response?',o:['Double the quantity to recover','Take a break and review the journal','Remove the stop on the next trade'],a:1,w:'After a loss, emotion drives decisions. A break and a review help you see the pattern.'},tr:{l:'Open the journal',go:'journal'}},
 ];
 function renderLearn(){
@@ -1529,6 +1661,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('button,[data-close]'); if(!t) return;
   const D=t.dataset;
   if('close' in D){closeSheet();return;}
+  if('tour' in D){startTour();return;}
   if('funds' in D){openFunds();return;}
   if(D.part){if(D.part===PART)return;save();try{localStorage.setItem('teji.part',D.part);}catch(e){}location.hash=D.part;setTimeout(()=>location.reload(),60);return;}
   if(D.bk){bookTab=D.bk;bookSig='';updateBook();return;}
@@ -1559,12 +1692,16 @@ document.addEventListener('click',e=>{
     if(ok&&!PREF.done[l.id]){PREF.done[l.id]=1;save();renderLearn();toast('Lesson complete ✓');}
     return;}
   if(D.side&&ot){readOT();ot.side=D.side;defaultSLT();renderOT();return;}
-  if(D.prod&&ot){readOT();ot.product=D.prod;renderOT();return;}
+  if(D.prod&&ot){readOT();ot.product=D.prod;ot.lev=defaultLev(getInst(ot.sym),ot.product);renderOT();return;}
+  if(D.lev&&ot){$('#levR').value=D.lev;ot.lev=+D.lev;updateOT();return;}
   if(D.otype&&ot){readOT();ot.type=D.otype;if(D.otype!=='MARKET'){const l=price(ot.sym),dir=ot.side==='BUY'?1:-1,inst=getInst(ot.sym);const off=inst.kind==='opt'?0.05:0.003;ot.px=rt(D.otype==='LIMIT'?l*(1-dir*off):l*(1+dir*off));}defaultSLT();renderOT();return;}
   if(D.q&&ot){const el=$('#otQty'),i=getInst(ot.sym);if(i.kind==='crypto'){el.value=fq(Math.max(i.qs,floorTo((parseFloat(el.value)||0)+ +D.q*i.qs,i.qs)));}else el.value=Math.max(1,(parseInt(el.value,10)||0)+ +D.q);updateOT();return;}
   if(D.cap){$$('#capC button').forEach(b=>b.classList.toggle('on',b===t));return;}
   switch(t.id){
     case 'symBtn': openSearch(); break;
+    case 'tNext': tourI++; if(tourI>=TOUR.length) endTour(); else showTour(); break;
+    case 'tBack': if(tourI>0){tourI--;showTour();} break;
+    case 'tSkip': endTour(); break;
     case 'fab': openBook(); break;
     case 'themeBtn': PREF.theme=PREF.theme==='dark'?'light':'dark'; try{localStorage.setItem('teji.theme',PREF.theme);}catch(e){} save(); applyTheme(); if(sheetKind==='book'){bookSig='';} $('#pfBody').dataset.sig=''; $('#ocBody').dataset.sig=''; $('#watch').dataset.built=''; updateUI(true); break;
     case 'fundGo': addFunds(); break;
@@ -1585,6 +1722,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
   const id=e.target.id;
+  if(sheetKind==='order'&&id==='levR'){ot.lev=+e.target.value;updateOT();}
   if(sheetKind==='order'&&/^ot/.test(id)){ if(id==='otSlOn'||id==='otTgtOn'){$('#otSl').disabled=!$('#otSlOn').checked;$('#otTgt').disabled=!$('#otTgtOn').checked;} updateOT(); }
   if(/^c(Cap|Risk|Entry|Sl)$/.test(id)) calc();
   if(id==='wSearch'){const q=e.target.value.trim().toLowerCase();$$('#watch .w-row').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
@@ -1599,8 +1737,8 @@ ch.ind=PREF.ind;
 if(LIVE){await Promise.race([pollQuotes(),new Promise(r=>setTimeout(r,5000))]);setInterval(pollQuotes,CRYPTO?2000:5000);startStream();setInterval(()=>{if(cur==='chart'){const i=getInst(ch.sym);loadCandles(i.kind==='opt'?i.und:ch.sym,ch.tf,true);}},60000);}
 $$('#partSeg button').forEach(b=>b.classList.toggle('on',b.dataset.part===PART));
 if(CRYPTO){const ob=$('.tabs [data-go="options"]');if(ob)ob.remove();$('.tabs').style.gridTemplateColumns='repeat(4,1fr)';$('#pcLabel').textContent='Crypto portfolio · USDT';document.title='Teji Crypto Paper Trading';}
-window.tejiBack=()=>{if(sheetKind){closeSheet();return true;}if(cur!=='markets'){go('markets');return true;}return false;};
-applyTheme(); renderFeed(); speedSeg(); renderLearn(); go('markets');
+window.tejiBack=()=>{if(tourI>=0){endTour();return true;}if(sheetKind){closeSheet();return true;}if(cur!=='markets'){go('markets');return true;}return false;};
+applyTheme(); renderFeed(); speedSeg(); renderLearn(); go('markets'); hideSplash();
 setInterval(tick,500);
 requestAnimationFrame(loop);
 })();

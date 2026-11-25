@@ -3,10 +3,10 @@
     <color name="ic_bg">#121826</color>
 
     <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@android:color/white</item>
-        <item name="android:statusBarColor">#EDF0F4</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/ic_bg</item>
+        <item name="android:statusBarColor">#121826</item>
+        <item name="android:navigationBarColor">#121826</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:colorAccent">#F0A020</item>
     </style>
 </resources>

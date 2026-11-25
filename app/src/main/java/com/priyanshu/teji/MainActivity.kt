@@ -30,6 +30,7 @@ class MainActivity : Activity() {
         const val HOST = "teji.app"
         private const val LIGHT_BG = 0xFFEDF0F4.toInt()
         private const val DARK_BG = 0xFF0A0F17.toInt()
+        private const val SPLASH_BG = 0xFF121826.toInt()
     }
 
     private lateinit var root: FrameLayout
@@ -41,9 +42,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         root = FrameLayout(this)
-        root.setBackgroundColor(LIGHT_BG)
+        root.setBackgroundColor(SPLASH_BG)
         web = WebView(this)
-        web.setBackgroundColor(LIGHT_BG)
+        web.setBackgroundColor(SPLASH_BG)
         root.addView(
             web,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -95,6 +96,7 @@ class MainActivity : Activity() {
                 return true
             }
         }
+        paintBars(SPLASH_BG, false)
         web.loadUrl("https://$HOST/index.html")
     }
 
@@ -120,7 +122,11 @@ class MainActivity : Activity() {
     }
 
     private fun applyBars(dark: Boolean) {
-        val bg = if (dark) DARK_BG else LIGHT_BG
+        paintBars(if (dark) DARK_BG else LIGHT_BG, !dark)
+    }
+
+    private fun paintBars(bg: Int, lightBars: Boolean) {
+        val dark = !lightBars
         root.setBackgroundColor(bg)
         web.setBackgroundColor(bg)
         if (Build.VERSION.SDK_INT < 35) {
