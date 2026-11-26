@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spacebachao.app.AppViewModel
 import com.spacebachao.app.Perms
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 
 private enum class Screen { HOME, BIN, SETTINGS }
 
@@ -74,7 +74,7 @@ fun AppRoot(vm: AppViewModel) {
 
     // Soft colourful background behind glass; text colour set for light and dark mode
     AppBackground {
-        CompositionLocalProvider(LocalContentColor provides LocalApple.current.label) {
+        CompositionLocalProvider(LocalContentColor provides LocalPalette.current.label) {
             when {
                 !state.hasPermission -> PermissionScreen(onGrant = { permissionLauncher.launch(Perms.required()) })
                 paywall != null -> ProScreen(state, paywall, vm)

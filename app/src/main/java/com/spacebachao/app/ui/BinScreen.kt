@@ -39,11 +39,11 @@ import com.spacebachao.app.AppViewModel
 import com.spacebachao.app.UiState
 import com.spacebachao.app.data.BinEntry
 import com.spacebachao.app.readableSize
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 
 @Composable
 fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     var confirmAll by remember { mutableStateOf(false) }
     var confirmOne by remember { mutableStateOf<BinEntry?>(null) }
     val keepDays = if (state.effectiveBinDays > 0) state.effectiveBinDays else 7
@@ -89,11 +89,11 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
                         color = p.secondary,
                     )
                     Spacer(Modifier.height(16.dp))
-                    GlossyButton(
+                    GlassButton(
                         "Empty Bin · free ${state.binSize.readableSize()}",
                         { confirmAll = true },
                         Modifier.fillMaxWidth(),
-                        colors = listOf(p.orange, p.red),
+                        textColor = p.red,
                     )
                 }
             }
@@ -125,7 +125,7 @@ fun BinScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun BinRow(entry: BinEntry, keepDays: Int, onRestore: () -> Unit, onDelete: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val ageDays = ((System.currentTimeMillis() - entry.createdAt) / (24L * 60 * 60 * 1000)).toInt()
     val left = (keepDays - ageDays).coerceAtLeast(0)
     Row(

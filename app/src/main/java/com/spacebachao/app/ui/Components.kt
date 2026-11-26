@@ -47,7 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.spacebachao.app.data.Kind
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -82,7 +82,7 @@ fun Thumbnail(uri: Uri, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        Box(modifier.background(LocalApple.current.track))
+        Box(modifier.background(LocalPalette.current.track))
     }
 }
 
@@ -100,7 +100,7 @@ fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = p.card,
@@ -120,7 +120,7 @@ fun ConfirmDialog(
 /** "100% secure" trust line. */
 @Composable
 fun SecureLine(modifier: Modifier = Modifier, color: Color? = null) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Filled.VerifiedUser, contentDescription = null, modifier = Modifier.size(15.dp), tint = p.green)
         Spacer(Modifier.width(6.dp))
@@ -134,7 +134,7 @@ fun SecureLine(modifier: Modifier = Modifier, color: Color? = null) {
 
 @Composable
 fun Bullet(text: String, iconTint: Color? = null) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 5.dp)) {
         Icon(
             Icons.Filled.CheckCircle,
@@ -149,7 +149,7 @@ fun Bullet(text: String, iconTint: Color? = null) {
 
 @Composable
 fun PermissionScreen(onGrant: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Column(
         Modifier
             .fillMaxSize()
@@ -161,10 +161,10 @@ fun PermissionScreen(onGrant: () -> Unit) {
             Modifier
                 .size(84.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .background(Brush.linearGradient(listOf(p.accentLight, p.accent))),
+                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(42.dp))
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = p.onButton, modifier = Modifier.size(42.dp))
         }
         Spacer(Modifier.height(28.dp))
         Text("Free up space.\nKeep every memory.", style = MaterialTheme.typography.displaySmall, color = p.label)

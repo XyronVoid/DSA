@@ -9,6 +9,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +31,10 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,13 +49,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +78,21 @@ import com.spacebachao.app.data.MediaFile
 import com.spacebachao.app.data.Mode
 import com.spacebachao.app.formatDuration
 import com.spacebachao.app.readableSize
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlin.math.abs
+
+private val OtherGray = Color(0xFF4A4A4A)
+
+/** Grid item under a touch point (works with content padding). */
+private fun LazyGridState.keyAt(pos: Offset): Any? {
+    val info = layoutInfo
+    val y = pos.y.toInt() + info.viewportStartOffset
+    val row = info.visibleItemsInfo.filter { y >= it.offset.y && y < it.offset.y + it.size.height }
+    if (row.isEmpty()) return null
+    return row.minByOrNull { abs(it.offset.x + it.size.width / 2 - pos.x.toInt()) }?.key
+}
 
 @Composable
 fun HomeScreen(
@@ -73,27 +102,101 @@ fun HomeScreen(
     onOpenBin: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val hasSelection = state.selected.isNotEmpty()
     val list = state.listFor(state.tab)
     val allSelected = list.isNotEmpty() && list.all { it.key in state.selected }
 
+    // ----- Drag to select (long-press, then slide like a gallery app) -----
+    val gridState = rememberLazyGridState()
+    val haptics = LocalHapticFeedback.current
+    val currentList by rememberUpdatedState(list)
+    val currentSelected by rememberUpdatedState(state.selected)
+    var dragStart by remember { mutableIntStateOf(-1) }
+    var dragBase by remember { mutableStateOf(emptySet<String>()) }
+    var dragAdds by remember { mutableStateOf(true) }
+    var lastPointer by remember { mutableStateOf<Offset?>(null) }
+    var autoScroll by remember { mutableFloatStateOf(0f) }
+
+    fun indexAt(pos: Offset): Int? {
+        val key = gridState.keyAt(pos) as? String ?: return null
+        val idx = currentList.indexOfFirst { it.key == key }
+        return if (idx >= 0) idx else null
+    }
+
+    fun selectRangeTo(idx: Int) {
+        val l = currentList
+        if (dragStart !in l.indices || idx !in l.indices) return
+        val range = if (idx >= dragStart) dragStart..idx else idx..dragStart
+        val keys = range.map { l[it].key }.toSet()
+        vm.setSelected(if (dragAdds) dragBase + keys else dragBase - keys)
+    }
+
+    LaunchedEffect(autoScroll) {
+        if (autoScroll != 0f) {
+            while (isActive) {
+                gridState.scrollBy(autoScroll)
+                lastPointer?.let { pos -> indexAt(pos)?.let { selectRangeTo(it) } }
+                delay(16)
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Adaptive(104.dp),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
                 top = top + 4.dp,
-                bottom = bottom + if (hasSelection) 200.dp else 28.dp,
+                bottom = bottom + if (hasSelection) 210.dp else 28.dp,
             ),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { pos ->
+                            val idx = indexAt(pos)
+                            if (idx != null) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                dragStart = idx
+                                dragBase = currentSelected
+                                dragAdds = currentList[idx].key !in currentSelected
+                                lastPointer = pos
+                                selectRangeTo(idx)
+                            }
+                        },
+                        onDrag = { change, _ ->
+                            if (dragStart >= 0) {
+                                change.consume()
+                                lastPointer = change.position
+                                indexAt(change.position)?.let { selectRangeTo(it) }
+                                val edge = 96.dp.toPx()
+                                val y = change.position.y
+                                autoScroll = when {
+                                    y < edge -> -((edge - y) / edge) * 28f
+                                    y > size.height - edge -> ((y - (size.height - edge)) / edge) * 28f
+                                    else -> 0f
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            dragStart = -1
+                            autoScroll = 0f
+                        },
+                        onDragCancel = {
+                            dragStart = -1
+                            autoScroll = 0f
+                        },
+                    )
+                },
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "h_title", span = { GridItemSpan(maxLineSpan) }) {
                 LargeTitle("Space Bachao") {
                     ProPill(state.isPro, onClick = { vm.openPro() })
                     GlassIconButton(
@@ -105,10 +208,10 @@ fun HomeScreen(
                     GlassIconButton(Icons.Outlined.Settings, "Settings", onOpenSettings)
                 }
             }
-            item(span = { GridItemSpan(maxLineSpan) }) { HeroCard(state) }
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "h_storage", span = { GridItemSpan(maxLineSpan) }) { StorageCard(state) }
+            item(key = "h_controls", span = { GridItemSpan(maxLineSpan) }) {
                 Column {
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(16.dp))
                     val kinds = listOf(Kind.IMAGE, Kind.VIDEO, Kind.PDF)
                     IOSSegmented(
                         options = kinds.map { it.plural },
@@ -127,7 +230,7 @@ fun HomeScreen(
 
             when {
                 state.tab == Kind.PDF -> {
-                    item(span = { GridItemSpan(maxLineSpan) }) { PdfIntro(onPickPdf) }
+                    item(key = "h_pdf", span = { GridItemSpan(maxLineSpan) }) { PdfIntro(onPickPdf) }
                     items(state.pdfs, key = { it.key }, span = { GridItemSpan(maxLineSpan) }) { pdf ->
                         PdfRow(
                             pdf,
@@ -137,7 +240,7 @@ fun HomeScreen(
                         )
                     }
                 }
-                state.loading && list.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
+                state.loading && list.isEmpty() -> item(key = "h_loading", span = { GridItemSpan(maxLineSpan) }) {
                     Box(
                         Modifier
                             .fillMaxWidth()
@@ -145,7 +248,7 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) { CircularProgressIndicator(color = p.accent) }
                 }
-                list.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
+                list.isEmpty() -> item(key = "h_empty", span = { GridItemSpan(maxLineSpan) }) {
                     GlassCard(Modifier.padding(top = 6.dp)) {
                         Text(
                             if (state.tab == Kind.IMAGE) "No large photos left" else "No large videos left",
@@ -153,17 +256,17 @@ fun HomeScreen(
                             color = p.label,
                         )
                         Text(
-                            "Everything big has been compressed already. Nice!",
+                            "Everything big has been compressed already.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = p.secondary,
                         )
                     }
                 }
                 else -> {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
+                    item(key = "h_listhead", span = { GridItemSpan(maxLineSpan) }) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
@@ -171,7 +274,11 @@ fun HomeScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     color = p.label,
                                 )
-                                Text("Biggest first", style = MaterialTheme.typography.bodySmall, color = p.secondary)
+                                Text(
+                                    "Biggest first · hold and slide to select many",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = p.secondary,
+                                )
                             }
                             Text(
                                 if (allSelected) "Deselect" else "Select all",
@@ -204,51 +311,79 @@ fun HomeScreen(
 
 @Composable
 private fun ProPill(isPro: Boolean, onClick: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Row(
         Modifier
             .height(42.dp)
             .clip(CircleShape)
-            .background(Brush.linearGradient(listOf(p.gold, p.goldDeep)))
-            .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.45f), 0.5f to Color.Transparent))
+            .background(p.card)
+            .border(1.dp, p.goldDeep, CircleShape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.gold, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(5.dp))
         Text(
             if (isPro) "PRO" else "Get Pro",
-            color = Color.White,
+            color = p.gold,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
         )
     }
 }
 
+/** How full the phone is: used / free, split into photos, videos and everything else. */
 @Composable
-private fun HeroCard(state: UiState) {
-    val p = LocalApple.current
-    val total = state.storageTotal
-    val free = state.storageFree
-    val used = if (total > 0) ((total - free).toFloat() / total).coerceIn(0f, 1f) else 0f
-    GlassCard(strong = true, shape = RoundedCornerShape(30.dp), padding = PaddingValues(22.dp)) {
-        Text("Free space", style = MaterialTheme.typography.labelLarge, color = p.secondary)
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(free.readableSize(), style = MaterialTheme.typography.displayMedium, color = p.label)
-            Text(
-                "  of ${total.readableSize()}",
-                style = MaterialTheme.typography.titleMedium,
-                color = p.secondary,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+private fun StorageCard(state: UiState) {
+    val p = LocalPalette.current
+    val total = state.storageTotal.coerceAtLeast(1L)
+    val free = state.storageFree.coerceIn(0L, total)
+    val used = total - free
+    val photos = state.photosBytes.coerceIn(0L, used)
+    val videos = state.videosBytes.coerceIn(0L, used - photos)
+    val other = (used - photos - videos).coerceAtLeast(0L)
+    val usedPct = (used * 100 / total).toInt()
+
+    GlassCard(shape = RoundedCornerShape(26.dp), padding = PaddingValues(22.dp)) {
+        Row {
+            Column(Modifier.weight(1f)) {
+                Caps("Used")
+                Text(used.readableSize(), style = MaterialTheme.typography.headlineLarge, color = p.label)
+                Text("$usedPct% full", style = MaterialTheme.typography.bodySmall, color = p.secondary)
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Caps("Free")
+                Text(free.readableSize(), style = MaterialTheme.typography.headlineLarge, color = p.gold)
+                Text("of ${total.readableSize()}", style = MaterialTheme.typography.bodySmall, color = p.secondary)
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        CapsuleBar(used, height = 10.dp)
         Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MiniStat("Saved so far", state.totalSaved.readableSize(), p.green, Modifier.weight(1f))
-            MiniStat("In Bin", state.binSize.readableSize(), p.orange, Modifier.weight(1f))
+        SegmentBar(
+            listOf(
+                photos.toFloat() / total to p.label,
+                videos.toFloat() / total to p.gold,
+                other.toFloat() / total to OtherGray,
+            )
+        )
+        Spacer(Modifier.height(12.dp))
+        Row {
+            Legend("Photos", photos.readableSize(), p.label, Modifier.weight(1f))
+            Legend("Videos", videos.readableSize(), p.gold, Modifier.weight(1f))
+            Legend("Other", other.readableSize(), OtherGray, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(16.dp))
+        Hairline()
+        Spacer(Modifier.height(14.dp))
+        Row {
+            Column(Modifier.weight(1f)) {
+                Caps("Saved so far")
+                Text(state.totalSaved.readableSize(), style = MaterialTheme.typography.titleLarge, color = p.green)
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                Caps("In Bin")
+                Text(state.binSize.readableSize(), style = MaterialTheme.typography.titleLarge, color = p.orange)
+            }
         }
         Spacer(Modifier.height(14.dp))
         SecureLine()
@@ -256,22 +391,32 @@ private fun HeroCard(state: UiState) {
 }
 
 @Composable
-private fun MiniStat(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
-    val p = LocalApple.current
-    Column(
-        modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(p.track)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = p.secondary)
-        Text(value, style = MaterialTheme.typography.titleLarge, color = valueColor, fontWeight = FontWeight.Bold)
+private fun Legend(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.bodySmall, color = p.secondary, maxLines = 1)
+        }
+        Text(
+            value,
+            style = MaterialTheme.typography.labelLarge,
+            color = p.label,
+            maxLines = 1,
+            modifier = Modifier.padding(start = 14.dp),
+        )
     }
 }
 
 @Composable
 private fun ProgressCard(state: UiState) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val tab = state.tab
     val done = state.doneCount[tab] ?: 0
     val left = state.listFor(tab).size
@@ -288,14 +433,14 @@ private fun ProgressCard(state: UiState) {
             )
             Text("$left left", style = MaterialTheme.typography.titleMedium, color = p.secondary)
         }
-        Spacer(Modifier.height(10.dp))
-        CapsuleBar(fraction, colors = listOf(p.greenLight, p.green))
+        Spacer(Modifier.height(12.dp))
+        CapsuleBar(fraction, colors = listOf(p.green, p.greenLight))
     }
 }
 
 @Composable
 private fun FreePlanCard(state: UiState, onUpgrade: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val fraction = state.freeUsed.toFloat() / FREE_LIMIT_BYTES
     GlassCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -310,26 +455,23 @@ private fun FreePlanCard(state: UiState, onUpgrade: () -> Unit) {
             Text(
                 "Upgrade",
                 style = MaterialTheme.typography.titleMedium,
-                color = p.accent,
+                color = p.gold,
                 modifier = Modifier
                     .clip(CircleShape)
                     .clickable(onClick = onUpgrade)
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
-        Spacer(Modifier.height(10.dp))
-        CapsuleBar(
-            fraction,
-            colors = if (fraction > 0.85f) listOf(p.orange, p.red) else listOf(p.accentLight, p.accent),
-        )
+        Spacer(Modifier.height(12.dp))
+        CapsuleBar(fraction, colors = if (fraction > 0.85f) listOf(p.orange, p.red) else null)
     }
 }
 
 @Composable
 private fun MediaTile(file: MediaFile, selected: Boolean, onClick: () -> Unit) {
-    val p = LocalApple.current
-    val scale by animateFloatAsState(if (selected) 0.9f else 1f, label = "tile")
-    val shape = RoundedCornerShape(14.dp)
+    val p = LocalPalette.current
+    val scale by animateFloatAsState(if (selected) 0.88f else 1f, label = "tile")
+    val shape = RoundedCornerShape(if (selected) 18.dp else 10.dp)
     Box(
         Modifier
             .aspectRatio(1f)
@@ -345,7 +487,7 @@ private fun MediaTile(file: MediaFile, selected: Boolean, onClick: () -> Unit) {
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f))))
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
                 .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
             Text(
@@ -365,23 +507,29 @@ private fun MediaTile(file: MediaFile, selected: Boolean, onClick: () -> Unit) {
                     .align(Alignment.TopStart)
                     .padding(6.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f))
+                    .background(Color.Black.copy(alpha = 0.55f))
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             )
         }
-        // iOS Photos style check mark
+        if (selected) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.25f))
+            )
+        }
         Box(
             Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.TopEnd)
                 .padding(6.dp)
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(if (selected) p.accent else Color.White.copy(alpha = 0.25f))
-                .border(1.5.dp, Color.White, CircleShape),
+                .background(if (selected) p.gold else Color.Black.copy(alpha = 0.3f))
+                .border(1.5.dp, if (selected) p.gold else Color.White, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(15.dp))
             }
         }
     }
@@ -389,7 +537,7 @@ private fun MediaTile(file: MediaFile, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun PdfIntro(onPickPdf: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     GlassCard {
         Text("Best for scanned PDFs", style = MaterialTheme.typography.titleMedium, color = p.label)
         Spacer(Modifier.height(6.dp))
@@ -406,7 +554,7 @@ private fun PdfIntro(onPickPdf: () -> Unit) {
 
 @Composable
 private fun PdfRow(pdf: MediaFile, selected: Boolean, onToggle: () -> Unit, onRemove: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -419,11 +567,11 @@ private fun PdfRow(pdf: MediaFile, selected: Boolean, onToggle: () -> Unit, onRe
             Modifier
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(if (selected) p.accent else p.track),
+                .background(if (selected) p.gold else p.track),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(15.dp))
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -453,15 +601,32 @@ private fun PdfRow(pdf: MediaFile, selected: Boolean, onToggle: () -> Unit, onRe
 
 @Composable
 private fun ActionPanel(state: UiState, vm: AppViewModel) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Column(
         Modifier
             .navigationBarsPadding()
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .fillMaxWidth()
-            .glass(p, RoundedCornerShape(30.dp), strong = true, elevation = 16.dp)
+            .glass(p, RoundedCornerShape(28.dp), strong = true)
             .padding(16.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
+            Text(
+                "${state.selected.size} selected",
+                style = MaterialTheme.typography.titleMedium,
+                color = p.label,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "Clear",
+                style = MaterialTheme.typography.labelLarge,
+                color = p.secondary,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { vm.setSelected(emptySet()) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
         IOSSegmented(
             options = listOf("Replace", "Keep both"),
             selected = if (state.mode == Mode.REPLACE) 0 else 1,
@@ -479,7 +644,7 @@ private fun ActionPanel(state: UiState, vm: AppViewModel) {
             modifier = Modifier.padding(vertical = 10.dp),
         )
         GlossyButton(
-            "Compress ${state.selected.size} · ${state.selectedSize.readableSize()}",
+            "Compress · ${state.selectedSize.readableSize()}",
             onClick = { vm.startCompress() },
             modifier = Modifier.fillMaxWidth(),
             icon = Icons.Filled.Compress,

@@ -46,11 +46,11 @@ import com.spacebachao.app.Paywall
 import com.spacebachao.app.UiState
 import com.spacebachao.app.billing.ProPlan
 import com.spacebachao.app.readableSize
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 
 @Composable
 fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val activity = LocalContext.current as? Activity
     val plans = state.plans
     // Yearly selected by default if it exists
@@ -72,11 +72,10 @@ fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
             Modifier
                 .size(84.dp)
                 .clip(RoundedCornerShape(26.dp))
-                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep)))
-                .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.5f), 0.5f to Color.Transparent)),
+                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.onButton, modifier = Modifier.size(46.dp))
         }
         Spacer(Modifier.height(18.dp))
         Text(
@@ -181,7 +180,7 @@ fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
 
 @Composable
 private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val shape = RoundedCornerShape(22.dp)
     Row(
         Modifier
@@ -199,7 +198,7 @@ private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: (
                 .background(if (selected) p.goldDeep else p.track),
             contentAlignment = Alignment.Center,
         ) {
-            if (selected) Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+            if (selected) Box(Modifier.size(8.dp).clip(CircleShape).background(p.onButton))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -211,10 +210,10 @@ private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: (
                         "BEST VALUE",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = p.onButton,
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(p.green)
+                            .background(p.gold)
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     )
                 }

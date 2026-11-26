@@ -88,6 +88,9 @@ data class UiState(
     val binEntries: List<BinEntry> = emptyList(),
     val storageFree: Long = 0,
     val storageTotal: Long = 0,
+    /** Space taken by all photos / all videos (for the "how full" bar). */
+    val photosBytes: Long = 0,
+    val videosBytes: Long = 0,
     /** Files compressed earlier, per type (shown as "done"). */
     val doneCount: Map<Kind, Int> = emptyMap(),
     val totalSaved: Long = 0,
@@ -202,6 +205,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val allVideos = runCatching { MediaScanner.scan(ctx, Kind.VIDEO) }.getOrDefault(emptyList())
             val images = allImages.filter { it.key !in processed }
             val videos = allVideos.filter { it.key !in processed }
+            val photosBytes = runCatching { MediaScanner.totalBytes(ctx, Kind.IMAGE) }.getOrDefault(0L)
+            val videosBytes = runCatching { MediaScanner.totalBytes(ctx, Kind.VIDEO) }.getOrDefault(0L)
             val done = mapOf(
                 Kind.IMAGE to allImages.count { it.key in saved },
                 Kind.VIDEO to allVideos.count { it.key in saved },
@@ -214,6 +219,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     images = images,
                     videos = videos,
                     doneCount = done,
+                    photosBytes = photosBytes,
+                    videosBytes = videosBytes,
                     selected = s.selected.filter { it in valid }.toSet(),
                 )
             }
@@ -236,6 +243,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggle(file: MediaFile) = _state.update { s ->
         s.copy(selected = if (file.key in s.selected) s.selected - file.key else s.selected + file.key)
     }
+
+    /** Drag-to-select sets the whole selection at once. */
+    fun setSelected(keys: Set<String>) = _state.update { it.copy(selected = keys) }
 
     fun selectAllInTab() = _state.update { s -> s.copy(selected = s.selected + s.listFor(s.tab).map { it.key }) }
 

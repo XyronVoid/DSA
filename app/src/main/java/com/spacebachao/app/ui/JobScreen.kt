@@ -50,7 +50,7 @@ import com.spacebachao.app.data.Kind
 import com.spacebachao.app.data.Mode
 import com.spacebachao.app.data.ResultItem
 import com.spacebachao.app.readableSize
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 
 @Composable
 fun JobScreen(
@@ -73,7 +73,7 @@ fun JobScreen(
 
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier, valueColor: Color? = null) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Column(
         modifier
             .glass(p, RoundedCornerShape(22.dp), strong = true)
@@ -93,7 +93,7 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
 
 @Composable
 private fun RunningView(job: JobState, onCancel: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Column(
         Modifier
             .fillMaxSize()
@@ -114,7 +114,7 @@ private fun RunningView(job: JobState, onCancel: () -> Unit) {
                 progress = if (pr >= 0f) pr else null,
                 size = 210.dp,
                 stroke = 20.dp,
-                colors = listOf(p.accentLight, p.accent, p.green, p.accentLight),
+                colors = listOf(p.goldDeep, p.gold, p.goldDeep),
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -171,7 +171,7 @@ private fun ResultView(
     onEmptyBin: () -> Unit,
     onGetPro: () -> Unit,
 ) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val savedCount = job.results.count { it.status == ItemStatus.SAVED }
     val skippedCount = job.results.count { it.status == ItemStatus.SKIPPED }
     val failedCount = job.results.count { it.status == ItemStatus.FAILED }
@@ -191,10 +191,10 @@ private fun ResultView(
                     Modifier
                         .size(84.dp)
                         .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(p.greenLight, p.green))),
+                        .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(46.dp))
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(job.savedSoFar.readableSize(), style = MaterialTheme.typography.displayMedium, color = p.label)
@@ -250,11 +250,11 @@ private fun ResultView(
                         color = p.secondary,
                     )
                     Spacer(Modifier.height(12.dp))
-                    GlossyButton(
+                    GlassButton(
                         "Empty Bin · free ${binSize.readableSize()}",
                         { confirmEmpty = true },
                         Modifier.fillMaxWidth(),
-                        colors = listOf(p.orange, p.red),
+                        textColor = p.red,
                     )
                 }
             }
@@ -287,7 +287,7 @@ private fun ResultView(
 
 @Composable
 private fun ResultRow(r: ResultItem) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val (icon, tint) = when (r.status) {
         ItemStatus.SAVED -> Icons.Filled.CheckCircle to p.green
         ItemStatus.SKIPPED -> Icons.Filled.Info to p.orange

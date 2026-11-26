@@ -1,6 +1,7 @@
 package com.spacebachao.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,11 +39,11 @@ import com.spacebachao.app.AppViewModel
 import com.spacebachao.app.FREE_BIN_DAYS
 import com.spacebachao.app.UiState
 import com.spacebachao.app.data.Quality
-import com.spacebachao.app.ui.theme.LocalApple
+import com.spacebachao.app.ui.theme.LocalPalette
 
 @Composable
 fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     val insets = WindowInsets.systemBars.asPaddingValues()
     Column(
         Modifier
@@ -64,20 +65,20 @@ fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep)))
-                .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.40f), 0.5f to Color.Transparent))
+                .clip(RoundedCornerShape(24.dp))
+                .background(p.card2)
+                .border(1.dp, p.goldDeep, RoundedCornerShape(24.dp))
                 .clickable { vm.openPro() }
                 .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
+            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.gold, modifier = Modifier.size(34.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     if (state.isPro) "Space Bachao Pro" else "Get Space Bachao Pro",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    color = p.gold,
                 )
                 Text(
                     when {
@@ -86,7 +87,7 @@ fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
                         else -> "Unlimited files, all quality modes, longer Bin"
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.92f),
+                    color = p.secondary,
                 )
             }
         }
@@ -166,7 +167,7 @@ fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun SectionLabel(text: String) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
@@ -177,7 +178,7 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun Group(content: @Composable () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Column(
         Modifier
             .fillMaxWidth()
@@ -187,7 +188,7 @@ private fun Group(content: @Composable () -> Unit) {
 
 @Composable
 private fun CheckRow(title: String, subtitle: String?, checked: Boolean, locked: Boolean, onClick: () -> Unit) {
-    val p = LocalApple.current
+    val p = LocalPalette.current
     Row(
         Modifier
             .fillMaxWidth()

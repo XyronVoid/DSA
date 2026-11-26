@@ -79,6 +79,20 @@ object MediaScanner {
         return result
     }
 
+    /** Total size of all photos or all videos on the phone (for the storage breakdown). */
+    fun totalBytes(context: Context, kind: Kind): Long {
+        val collection = when (kind) {
+            Kind.IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            Kind.VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            Kind.PDF -> return 0L
+        }
+        var sum = 0L
+        context.contentResolver.query(collection, arrayOf(MediaStore.MediaColumns.SIZE), null, null, null)?.use { c ->
+            while (c.moveToNext()) sum += c.getLong(0)
+        }
+        return sum
+    }
+
     /** Name and size of a PDF the user picked. */
     fun describePdf(context: Context, uri: Uri): MediaFile? {
         var name = "document.pdf"
