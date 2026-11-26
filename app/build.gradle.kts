@@ -11,8 +11,8 @@ android {
         applicationId = "com.priyanshu.teji"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     signingConfigs {
@@ -43,4 +43,9 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+}
+
+dependencies {
+    // Chrome's network engine (Cronet) from Google Play services, for live price requests
+    implementation("com.google.android.gms:play-services-cronet:18.0.1")
 }

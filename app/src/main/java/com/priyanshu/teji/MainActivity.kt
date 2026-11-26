@@ -1,10 +1,16 @@
 package com.priyanshu.teji
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -40,6 +46,7 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled", "AddJavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Net.init(this)
 
         root = FrameLayout(this)
         root.setBackgroundColor(SPLASH_BG)
@@ -146,10 +153,55 @@ class MainActivity : Activity() {
         }
     }
 
+    private val lastSync = HashMap<String, String>()
+
     inner class Bridge {
         @JavascriptInterface
         fun setTheme(dark: Boolean) {
             runOnUiThread { applyBars(dark) }
+        }
+
+        /** The web app hands over its stop losses, targets, liquidation levels and pending orders. */
+        @JavascriptInterface
+        fun syncTriggers(part: String, json: String) {
+            synchronized(lastSync) {
+                if (lastSync[part] == json) return
+                lastSync[part] = json
+            }
+            TriggerStore.setTriggers(this@MainActivity, part, json)
+            if (json.length > 2) runOnUiThread {
+                if (!TriggerService.isRunning) TriggerService.ensureRunning(this@MainActivity)
+                askBackgroundPermissions()
+            }
+        }
+
+        @JavascriptInterface
+        fun hasEvents(part: String): Boolean = TriggerStore.hasEvents(this@MainActivity, part)
+
+        @JavascriptInterface
+        fun takeEvents(part: String): String = TriggerStore.takeEvents(this@MainActivity, part)
+    }
+
+    /** Once: allow order alerts, then allow running in the background. */
+    private fun askBackgroundPermissions() {
+        val prefs = getSharedPreferences("teji_bg", Context.MODE_PRIVATE)
+        if (Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("asked_notif", false)) {
+            prefs.edit().putBoolean("asked_notif", true).apply()
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 11)
+                return
+            }
+        }
+        if (!prefs.getBoolean("asked_battery", false)) {
+            prefs.edit().putBoolean("asked_battery", true).apply()
+            val pm = getSystemService(PowerManager::class.java)
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+                } catch (e: Exception) {
+                    // some phones do not offer this screen
+                }
+            }
         }
     }
 
@@ -160,13 +212,26 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        TriggerService.appVisible = true
+    }
+
+    override fun onStop() {
+        TriggerService.appVisible = false
+        if (TriggerStore.total(this) > 0 && !TriggerService.isRunning) TriggerService.ensureRunning(this)
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
+        web.resumeTimers()
         web.onResume()
     }
 
     override fun onPause() {
         web.onPause()
+        web.pauseTimers()
         super.onPause()
     }
 
