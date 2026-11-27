@@ -49,6 +49,7 @@ class BinManager(private val context: Context) {
             dateTakenMs = file.dateTakenMs,
             dateModifiedMs = file.dateModifiedMs,
             path = file.path,
+            relativePath = file.relativePath,
         )
     }
 
@@ -108,12 +109,22 @@ class BinManager(private val context: Context) {
             }
             uri
         } else {
-            val newUri = FileOps.insertNew(resolver, entry.kind, entry.name, entry.mime, src, entry.dateTakenMs, "Restored")
+            // Original is gone (deleted from the gallery, or replaced by a HEIC file): put it back in its folder
+            val newUri = try {
+                FileOps.insertNew(
+                    resolver, entry.kind, entry.name, entry.mime, src, entry.dateTakenMs,
+                    subFolder = "Restored", relativePathOverride = entry.relativePath,
+                )
+            } catch (e: Exception) {
+                FileOps.insertNew(resolver, entry.kind, entry.name, entry.mime, src, entry.dateTakenMs, "Restored")
+            }
             if (entry.kind != Kind.PDF) {
                 FileOps.restoreDates(context, newUri, null, entry.dateModifiedMs, entry.dateTakenMs)
             }
             newUri
         }
+        // The smaller HEIC copy is not needed any more
+        entry.replacementUri?.let { r -> runCatching { resolver.delete(Uri.parse(r), null, null) } }
         delete(entry.id)
         return target
     }
@@ -143,6 +154,8 @@ class BinManager(private val context: Context) {
         put("dateTakenMs", e.dateTakenMs)
         put("dateModifiedMs", e.dateModifiedMs)
         e.path?.let { put("path", it) }
+        e.relativePath?.let { put("relativePath", it) }
+        e.replacementUri?.let { put("replacementUri", it) }
     }
 
     private fun fromJson(o: JSONObject): BinEntry? = try {
@@ -160,6 +173,8 @@ class BinManager(private val context: Context) {
             dateTakenMs = o.optLong("dateTakenMs"),
             dateModifiedMs = o.optLong("dateModifiedMs"),
             path = if (o.has("path")) o.optString("path") else null,
+            relativePath = if (o.has("relativePath")) o.optString("relativePath") else null,
+            replacementUri = if (o.has("replacementUri")) o.optString("replacementUri") else null,
         )
     } catch (e: Exception) {
         null

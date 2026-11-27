@@ -20,6 +20,11 @@ class Prefs(context: Context) {
         get() = sp.getInt("binDays", 7)
         set(value) = sp.edit().putInt("binDays", value).apply()
 
+    /** Photos are saved as HEIC (same quality, smaller). false = keep JPEG. */
+    var heic: Boolean
+        get() = sp.getBoolean("heic", true)
+        set(value) = sp.edit().putBoolean("heic", value).apply()
+
     /** Last known Pro state, so Pro keeps working if Play is briefly unreachable. */
     var proCached: Boolean
         get() = sp.getBoolean("proCached", false)

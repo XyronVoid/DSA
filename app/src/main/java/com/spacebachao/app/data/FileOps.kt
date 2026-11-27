@@ -63,13 +63,15 @@ object FileOps {
         src: File,
         dateTakenMs: Long,
         subFolder: String? = null,
+        relativePathOverride: String? = null,
     ): Uri {
         val folder = if (subFolder == null) FOLDER else "$FOLDER/$subFolder"
-        val (collection, relPath) = when (kind) {
+        val (collection, defaultRelPath) = when (kind) {
             Kind.IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI to "${Environment.DIRECTORY_PICTURES}/$folder"
             Kind.VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI to "${Environment.DIRECTORY_MOVIES}/$folder"
             Kind.PDF -> MediaStore.Downloads.EXTERNAL_CONTENT_URI to "${Environment.DIRECTORY_DOWNLOADS}/$folder"
         }
+        val relPath = relativePathOverride ?: defaultRelPath
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mime)
@@ -124,6 +126,19 @@ object FileOps {
         }
     } catch (e: Exception) {
         null
+    }
+
+    /** Photos in the camera / Pictures folders can become HEIC. App folders (WhatsApp etc.) stay JPEG. */
+    fun heicAllowedIn(relativePath: String?): Boolean {
+        val r = relativePath ?: return false
+        if (r.startsWith("${Environment.DIRECTORY_PICTURES}/$FOLDER")) return false
+        return r.startsWith("${Environment.DIRECTORY_DCIM}/") || r.startsWith("${Environment.DIRECTORY_PICTURES}/")
+    }
+
+    fun withExtension(original: String, newExt: String): String {
+        val dot = original.lastIndexOf('.')
+        val base = if (dot > 0) original.substring(0, dot) else original
+        return "$base.$newExt"
     }
 
     fun compressedName(original: String, newExt: String): String {

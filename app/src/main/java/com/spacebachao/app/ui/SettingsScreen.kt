@@ -92,6 +92,29 @@ fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
             }
         }
 
+        SectionLabel("PHOTO FORMAT")
+        Group {
+            CheckRow(
+                title = "HEIC · up to 50% smaller",
+                subtitle = if (state.heicSupported) {
+                    "Same resolution and quality. Photos in WhatsApp and other app folders stay JPEG."
+                } else {
+                    "This phone can't create HEIC, so JPEG is used."
+                },
+                checked = state.heic && state.heicSupported,
+                locked = false,
+                onClick = { if (state.heicSupported) vm.setHeic(true) },
+            )
+            Hairline(Modifier.padding(start = 16.dp))
+            CheckRow(
+                title = "JPEG · opens everywhere",
+                subtitle = "Works on every phone, PC and website",
+                checked = !(state.heic && state.heicSupported),
+                locked = false,
+                onClick = { vm.setHeic(false) },
+            )
+        }
+
         SectionLabel("QUALITY")
         Group {
             Quality.entries.forEachIndexed { i, q ->

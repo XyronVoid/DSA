@@ -20,8 +20,8 @@ android {
         applicationId = "com.spacebachao.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
         // Test builds unlock Pro for the developer. Always false in the Play Store build.
         buildConfigField("boolean", "DEV_PRO", "false")
     }
@@ -100,6 +100,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    // HEIC photos: same quality, much smaller files (phone's HEVC encoder)
+    implementation("androidx.heifwriter:heifwriter:1.0.0")
 
     // Video compression (on-device, hardware encoder)
     val media3 = "1.5.1"

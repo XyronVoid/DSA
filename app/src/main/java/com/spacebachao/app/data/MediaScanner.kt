@@ -38,6 +38,7 @@ object MediaScanner {
             MediaStore.MediaColumns.WIDTH,
             MediaStore.MediaColumns.HEIGHT,
             MediaStore.MediaColumns.DATA,
+            MediaStore.MediaColumns.RELATIVE_PATH,
         )
         if (kind == Kind.VIDEO) projection += MediaStore.MediaColumns.DURATION
 
@@ -58,6 +59,7 @@ object MediaScanner {
             val durCol = c.getColumnIndex(MediaStore.MediaColumns.DURATION)
             @Suppress("DEPRECATION")
             val pathCol = c.getColumnIndex(MediaStore.MediaColumns.DATA)
+            val relCol = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
                 result += MediaFile(
@@ -73,6 +75,7 @@ object MediaScanner {
                     height = c.getInt(hCol),
                     durationMs = if (durCol >= 0) c.getLong(durCol) else 0L,
                     path = if (pathCol >= 0) c.getString(pathCol) else null,
+                    relativePath = if (relCol >= 0) c.getString(relCol) else null,
                 )
             }
         }

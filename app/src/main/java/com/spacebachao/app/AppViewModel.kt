@@ -103,6 +103,11 @@ data class UiState(
     val paywall: Paywall? = null,
     val job: JobState? = null,
     val writeRequest: List<Uri>? = null,
+    /** Originals to delete after they were replaced by HEIC files (one system popup). */
+    val deleteRequest: List<Uri>? = null,
+    /** Save photos as HEIC (same quality, smaller). */
+    val heic: Boolean = true,
+    val heicSupported: Boolean = true,
     val message: String? = null,
 ) {
     val selectedFiles: List<MediaFile>
@@ -147,12 +152,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             devBuild = BuildConfig.DEV_PRO,
             totalSaved = prefs.totalSaved,
             freeUsed = prefs.freeUsed,
+            heic = prefs.heic,
+            heicSupported = ImageCompressor.heicSupported,
         )
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var job: Job? = null
     private var pendingAction: PendingAction? = null
+
+    /** A photo that now exists as a new HEIC file; its original is deleted after the user confirms. */
+    private data class PendingReplace(
+        val originalUri: Uri,
+        val newUri: Uri,
+        val key: String,
+        val newKey: String,
+        val binId: String?,
+        val gained: Long,
+        val originalSize: Long,
+        val countedFree: Boolean,
+    )
+
+    private val pendingReplaces = mutableListOf<PendingReplace>()
 
     private val billing = ProBilling(app) { isPro, plans ->
         if (isPro != null) prefs.proCached = isPro
@@ -277,6 +298,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(binDays = days) }
     }
 
+    fun setHeic(on: Boolean) {
+        prefs.heic = on
+        _state.update { it.copy(heic = on) }
+    }
+
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     private fun toast(msg: String) = _state.update { it.copy(message = msg) }
@@ -388,7 +414,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun launchCompress(items: List<MediaFile>) {
         val s = _state.value
-        val mediaUris = items.filter { it.kind != Kind.PDF }.map { it.uri }
+        val heicOn = s.heic && s.heicSupported
+        // Photos that become new HEIC files don't modify the original, so they don't need this popup
+        val mediaUris = items
+            .filter { it.kind != Kind.PDF && !(it.kind == Kind.IMAGE && heicOn && FileOps.heicAllowedIn(it.relativePath)) }
+            .map { it.uri }
         if (s.mode == Mode.REPLACE && Build.VERSION.SDK_INT >= 30 && mediaUris.isNotEmpty()) {
             // Android shows one system popup: "Allow Space Bachao to modify these files?"
             pendingAction = PendingAction.Compress(items)
@@ -416,6 +446,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun onDeleteRequestLaunched() = _state.update { it.copy(deleteRequest = null) }
+
+    /** User answered "Allow Space Bachao to delete these originals?" */
+    fun onDeleteRequestResult(granted: Boolean) {
+        _state.update { it.copy(deleteRequest = null) }
+        val list = synchronized(pendingReplaces) { pendingReplaces.toList().also { pendingReplaces.clear() } }
+        if (list.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val undo = if (granted) list.filter { FileOps.exists(ctx.contentResolver, it.originalUri) } else list
+            undo.forEach { undoReplace(it) }
+            if (undo.isNotEmpty()) {
+                val undoneKeys = undo.map { it.key }.toSet()
+                val lost = undo.sumOf { it.gained }
+                _state.update { st ->
+                    st.copy(
+                        job = st.job?.let { j ->
+                            j.copy(
+                                savedSoFar = (j.savedSoFar - lost).coerceAtLeast(0),
+                                results = j.results.map { r ->
+                                    if (r.key in undoneKeys) {
+                                        r.copy(status = ItemStatus.SKIPPED, after = r.before, note = "Original kept (delete not allowed)")
+                                    } else {
+                                        r
+                                    }
+                                },
+                            )
+                        },
+                        totalSaved = prefs.totalSaved,
+                        freeUsed = prefs.freeUsed,
+                    )
+                }
+            }
+            toast(
+                if (undo.isEmpty()) "Done. ${list.size} photos are now HEIC."
+                else "Originals kept for ${undo.size} photos. Nothing changed for them."
+            )
+            refreshBinAndStorage()
+            refresh()
+        }
+    }
+
+    /** Puts things back as they were before a HEIC replace (removes the new file and its Bin copy). */
+    private fun undoReplace(pr: PendingReplace) {
+        runCatching { ctx.contentResolver.delete(pr.newUri, null, null) }
+        pr.binId?.let { bin.delete(it) }
+        prefs.unmark(pr.key)
+        prefs.unmark(pr.newKey)
+        prefs.totalSaved = (prefs.totalSaved - pr.gained).coerceAtLeast(0)
+        if (pr.countedFree) prefs.freeUsed = (prefs.freeUsed - pr.originalSize).coerceAtLeast(0)
+    }
+
     private fun runCompress(items: List<MediaFile>) {
         val s = _state.value
         val mode = s.mode
@@ -423,6 +504,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val useBin = mode == Mode.REPLACE && s.effectiveBinDays > 0
         val hasLocation = s.hasLocation
         val isPro = s.isPro
+        val useHeic = s.heic && s.heicSupported
         val totals = items.groupingBy { it.kind }.eachCount()
 
         _state.update {
@@ -452,7 +534,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                     val r = try {
-                        processOne(item, mode, quality, useBin, hasLocation) { p ->
+                        processOne(item, mode, quality, useBin, hasLocation, useHeic, isPro) { p ->
                             _state.update { st -> st.copy(job = st.job?.copy(currentProgress = p.coerceIn(0f, 1f))) }
                         }
                     } catch (e: CancellationException) {
@@ -501,6 +583,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         pdfs = st.pdfs.filter { it.key !in batchKeys },
                     )
                 }
+                val toDelete = synchronized(pendingReplaces) { pendingReplaces.map { it.originalUri } }
+                if (toDelete.isNotEmpty()) {
+                    // One system popup: "Allow Space Bachao to delete these photos?"
+                    _state.update { it.copy(deleteRequest = toDelete) }
+                }
                 refresh()
             }
         }
@@ -512,6 +599,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         quality: Quality,
         useBin: Boolean,
         hasLocation: Boolean,
+        useHeic: Boolean,
+        isPro: Boolean,
         onProgress: (Float) -> Unit,
     ): ResultItem {
         val resolver = ctx.contentResolver
@@ -523,19 +612,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             Kind.PDF -> "pdf"
         }
         val tmp = File(ctx.cacheDir, "work_${System.nanoTime()}.$ext")
+        val heicTmp = File(ctx.cacheDir, "work_${System.nanoTime()}.heic")
+        // HEIC: new file next to the original (camera/Pictures folders), or the copy in Keep-both mode
+        val heicEligible = item.kind == Kind.IMAGE && useHeic &&
+            (mode == Mode.KEEP_BOTH || FileOps.heicAllowedIn(item.relativePath))
         try {
             val need = item.size * (if (useBin) 2 else 1) + 50L * 1024 * 1024
             if (ctx.filesDir.usableSpace < need) {
                 throw SkipException("Not enough free space (${need.readableSize()} needed)", permanent = false)
             }
 
+            var madeHeic = false
             when (item.kind) {
-                Kind.IMAGE -> ImageCompressor.compress(ctx, item, readUri, quality, tmp)
+                Kind.IMAGE -> {
+                    if (heicEligible) {
+                        madeHeic = try {
+                            ImageCompressor.compressHeic(ctx, item, readUri, quality, heicTmp)
+                        } catch (e: SkipException) {
+                            throw e
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                    if (!madeHeic) {
+                        if (heicEligible && mode == Mode.REPLACE) {
+                            // We didn't ask to modify this original, so leave it untouched
+                            throw SkipException("Couldn't convert this photo, original kept", permanent = false)
+                        }
+                        ImageCompressor.compress(ctx, item, readUri, quality, tmp)
+                    }
+                }
                 Kind.VIDEO -> VideoCompressor.compress(ctx, item, readUri, quality, tmp, onProgress)
                 Kind.PDF -> PdfCompressor.compress(ctx, item, quality, tmp, onProgress)
             }
+            val out = if (madeHeic) heicTmp else tmp
 
-            val newSize = tmp.length()
+            val newSize = out.length()
             val maxRatio = when (item.kind) {
                 Kind.IMAGE -> 0.85
                 Kind.VIDEO -> 0.90
@@ -546,19 +658,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             withContext(NonCancellable) {
-                when (mode) {
-                    Mode.REPLACE -> {
+                when {
+                    mode == Mode.REPLACE && madeHeic -> {
+                        replaceWithHeic(item, readUri, heicTmp, useBin, isPro)
+                    }
+                    mode == Mode.REPLACE -> {
                         replaceOriginal(item, readUri, tmp, useBin)
                         prefs.markSaved(listOf(item.key))
                     }
-                    Mode.KEEP_BOTH -> {
-                        val mime = when (item.kind) {
-                            Kind.IMAGE -> "image/jpeg"
-                            Kind.VIDEO -> "video/mp4"
-                            Kind.PDF -> "application/pdf"
+                    else -> {
+                        val mime = when {
+                            madeHeic -> "image/heic"
+                            item.kind == Kind.IMAGE -> "image/jpeg"
+                            item.kind == Kind.VIDEO -> "video/mp4"
+                            else -> "application/pdf"
                         }
                         val newUri = FileOps.insertNew(
-                            resolver, item.kind, FileOps.compressedName(item.name, ext), mime, tmp, item.dateTakenMs
+                            resolver, item.kind, FileOps.compressedName(item.name, if (madeHeic) "heic" else ext),
+                            mime, out, item.dateTakenMs
                         )
                         if (item.kind != Kind.PDF) {
                             FileOps.restoreDates(ctx, newUri, null, item.dateModifiedMs, item.dateTakenMs)
@@ -568,12 +685,71 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
-            return ResultItem(item.name, item.kind, item.size, newSize, ItemStatus.SAVED)
+            return ResultItem(item.name, item.kind, item.size, newSize, ItemStatus.SAVED, key = item.key)
         } catch (e: SkipException) {
             if (e.permanent) prefs.markProcessed(listOf(item.key))
             throw e
         } finally {
             tmp.delete()
+            heicTmp.delete()
+        }
+    }
+
+    /**
+     * HEIC replace (the format changes, so the original can't be overwritten):
+     * 1. copy of the original into the Bin
+     * 2. new .heic file in the same folder, with the original dates
+     * 3. original is deleted after the job, with one system confirmation (Android 11+)
+     */
+    private fun replaceWithHeic(item: MediaFile, readUri: Uri, heic: File, useBin: Boolean, isPro: Boolean) {
+        val resolver = ctx.contentResolver
+        val backup = if (useBin) bin.backup(item, readUri) else null
+        val newUri = try {
+            FileOps.insertNew(
+                resolver, Kind.IMAGE, FileOps.withExtension(item.name, "heic"), "image/heic", heic,
+                item.dateTakenMs, relativePathOverride = item.relativePath,
+            )
+        } catch (e: Exception) {
+            backup?.let { bin.discardBackup(it) }
+            throw e
+        }
+        FileOps.restoreDates(ctx, newUri, null, item.dateModifiedMs, item.dateTakenMs)
+        val newKey = MediaFile.keyFor(Kind.IMAGE, ContentUris.parseId(newUri), newUri)
+        backup?.let {
+            bin.add(
+                it.copy(
+                    compressedSize = heic.length(),
+                    relativePath = item.relativePath,
+                    replacementUri = newUri.toString(),
+                )
+            )
+        }
+        prefs.markSaved(listOf(item.key))
+        prefs.markProcessed(listOf(newKey))
+
+        if (Build.VERSION.SDK_INT < 30) {
+            // Android 10: the original can be deleted directly
+            val deleted = runCatching { resolver.delete(item.uri, null, null) > 0 }.getOrDefault(false)
+            if (!deleted) {
+                runCatching { resolver.delete(newUri, null, null) }
+                backup?.let { bin.delete(it.id) }
+                prefs.unmark(item.key)
+                prefs.unmark(newKey)
+                throw IOException("Could not remove the original")
+            }
+            return
+        }
+        synchronized(pendingReplaces) {
+            pendingReplaces += PendingReplace(
+                originalUri = item.uri,
+                newUri = newUri,
+                key = item.key,
+                newKey = newKey,
+                binId = backup?.id,
+                gained = item.size - heic.length(),
+                originalSize = item.size,
+                countedFree = !isPro,
+            )
         }
     }
 

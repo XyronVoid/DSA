@@ -38,6 +38,10 @@ fun AppRoot(vm: AppViewModel) {
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result -> vm.onWriteRequestResult(result.resultCode == Activity.RESULT_OK) }
 
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result -> vm.onDeleteRequestResult(result.resultCode == Activity.RESULT_OK) }
+
     val pdfLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris -> vm.addPdfs(uris) }
@@ -55,6 +59,20 @@ fun AppRoot(vm: AppViewModel) {
             }
         } else {
             vm.onWriteRequestResult(true)
+        }
+    }
+
+    // After HEIC conversion: "Allow this app to delete these originals?"
+    LaunchedEffect(state.deleteRequest) {
+        val uris = state.deleteRequest ?: return@LaunchedEffect
+        vm.onDeleteRequestLaunched()
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, uris)
+                deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+            } catch (e: Exception) {
+                vm.onDeleteRequestResult(false)
+            }
         }
     }
 

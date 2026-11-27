@@ -5,7 +5,7 @@ Offline Android app that compresses photos, videos and scanned PDFs on the phone
 
 | Type | How | Typical saving |
 |---|---|---|
-| Photos (JPEG) | Same resolution, re-encoded; date, location, camera info and time-zone kept | 30–60% |
+| Photos (JPEG) | Same resolution. HEIC by default (new .heic next to the original, original deleted after one system confirm); JPEG re-encode as fallback/option. Date, location, camera info kept | 50–75% (HEIC), 30–60% (JPEG) |
 | Videos (MP4) | H.265 via the phone's hardware encoder (Media3 Transformer); date/location written back | 40–55% |
 | Scanned PDFs | Pages re-rendered as clean JPEG pages | 50–80% |
 

@@ -633,11 +633,17 @@ private fun ActionPanel(state: UiState, vm: AppViewModel) {
             onSelect = { vm.setMode(if (it == 0) Mode.REPLACE else Mode.KEEP_BOTH) },
         )
         val days = state.effectiveBinDays
+        val heicPhotos = state.heic && state.heicSupported &&
+            state.selectedFiles.any { it.kind == Kind.IMAGE }
         Text(
             when {
                 state.mode == Mode.KEEP_BOTH -> "Original stays untouched. A smaller copy is saved in the SpaceBachao folder."
                 days > 0 -> "The smaller file replaces the original. The original is kept in the Bin for $days days."
                 else -> "The smaller file replaces the original. Bin is off, so it can't be restored."
+            } + if (heicPhotos && state.mode == Mode.REPLACE) {
+                " Photos become HEIC (same quality, smaller); you'll confirm once to remove the old JPEGs."
+            } else {
+                ""
             },
             style = MaterialTheme.typography.bodySmall,
             color = p.secondary,
