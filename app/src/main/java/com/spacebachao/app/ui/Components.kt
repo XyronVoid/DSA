@@ -157,15 +157,7 @@ fun PermissionScreen(onGrant: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            Modifier
-                .size(84.dp)
-                .clip(RoundedCornerShape(26.dp))
-                .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.Shield, contentDescription = null, tint = p.onButton, modifier = Modifier.size(42.dp))
-        }
+        AppLogo(84.dp)
         Spacer(Modifier.height(28.dp))
         Text("Free up space.\nKeep every memory.", style = MaterialTheme.typography.displaySmall, color = p.label)
         Spacer(Modifier.height(12.dp))

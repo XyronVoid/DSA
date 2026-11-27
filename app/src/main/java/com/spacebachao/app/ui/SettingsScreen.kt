@@ -180,7 +180,7 @@ fun SettingsScreen(state: UiState, vm: AppViewModel, onBack: () -> Unit) {
             )
         }
         Text(
-            "Space Bachao 1.2",
+            "Space Bachao 1.5",
             style = MaterialTheme.typography.bodySmall,
             color = p.tertiary,
             modifier = Modifier.align(Alignment.CenterHorizontally),

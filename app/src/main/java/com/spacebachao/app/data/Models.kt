@@ -30,12 +30,12 @@ enum class Quality(
     ),
     BALANCED(
         "Balanced", "Recommended. No visible difference, great savings", proOnly = false,
-        jpegQuality = 85, heicQuality = 82, hevcRatio = 0.45, avcRatio = 0.65, floorFactor = 1.0,
+        jpegQuality = 85, heicQuality = 80, hevcRatio = 0.40, avcRatio = 0.65, floorFactor = 1.0,
         pdfDpi = 150, pdfJpegQuality = 80,
     ),
     MAX_SAVING(
         "Max saving", "Biggest savings, slight softness when zoomed in", proOnly = true,
-        jpegQuality = 78, heicQuality = 72, hevcRatio = 0.33, avcRatio = 0.50, floorFactor = 0.75,
+        jpegQuality = 78, heicQuality = 68, hevcRatio = 0.30, avcRatio = 0.50, floorFactor = 0.75,
         pdfDpi = 120, pdfJpegQuality = 70,
     ),
 }

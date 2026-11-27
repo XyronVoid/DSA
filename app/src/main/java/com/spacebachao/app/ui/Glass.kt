@@ -44,6 +44,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -58,25 +60,38 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.spacebachao.app.ui.theme.LocalPalette
 import com.spacebachao.app.ui.theme.Palette
 
-/** Flat premium card: matte surface with a thin border. */
+/** Card: deep navy surface, soft top light and a thin glowing rim. */
 fun Modifier.glass(
     p: Palette,
-    shape: Shape = RoundedCornerShape(22.dp),
+    shape: Shape = RoundedCornerShape(24.dp),
     strong: Boolean = false,
     @Suppress("UNUSED_PARAMETER") elevation: Dp = 0.dp,
 ): Modifier = this
     .clip(shape)
-    .background(if (strong) p.card2 else p.card)
-    .border(1.dp, p.border, shape)
+    .background(
+        Brush.verticalGradient(
+            if (strong) listOf(p.card2, p.card) else listOf(p.card.copy(alpha = 0.92f), p.card.copy(alpha = 0.80f))
+        )
+    )
+    .border(
+        1.dp,
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.03f), p.gradC.copy(alpha = 0.18f))),
+        shape,
+    )
 
-/** Plain matte black background. */
+/** Navy background with a teal glow at the top and a purple glow at the bottom (like the ad). */
 @Composable
 fun AppBackground(content: @Composable () -> Unit) {
     val p = LocalPalette.current
@@ -84,6 +99,16 @@ fun AppBackground(content: @Composable () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(p.background)
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+                fun glow(color: Color, cx: Float, cy: Float, radius: Float) {
+                    val c = Offset(cx, cy)
+                    drawCircle(Brush.radialGradient(listOf(color, Color.Transparent), center = c, radius = radius), radius, c)
+                }
+                glow(p.glowTeal, w * 0.15f, h * 0.10f, w * 0.95f)
+                glow(p.glowPurple, w * 0.95f, h * 0.88f, w * 1.05f)
+            }
     ) { content() }
 }
 
@@ -91,7 +116,7 @@ fun AppBackground(content: @Composable () -> Unit) {
 fun GlassCard(
     modifier: Modifier = Modifier,
     strong: Boolean = false,
-    shape: Shape = RoundedCornerShape(22.dp),
+    shape: Shape = RoundedCornerShape(24.dp),
     padding: PaddingValues = PaddingValues(18.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -105,21 +130,84 @@ fun GlassCard(
     )
 }
 
-/** Small caps label, CRED style. */
+/** Small caps label. */
 @Composable
 fun Caps(text: String, color: Color? = null, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, color = color ?: p.secondary, modifier = modifier)
 }
 
-/** Segmented control with a sliding off-white pill. */
+/** Text painted with the brand gradient. */
+@OptIn(ExperimentalTextApi::class)
+@Composable
+fun GradientText(text: String, style: TextStyle, modifier: Modifier = Modifier, colors: List<Color>? = null) {
+    val p = LocalPalette.current
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(brush = Brush.linearGradient(colors ?: p.brand))) { append(text) }
+        },
+        style = style,
+        modifier = modifier,
+        maxLines = 1,
+    )
+}
+
+/** "Space Bachao" with "Bachao" in the brand gradient, like the logo. */
+@OptIn(ExperimentalTextApi::class)
+@Composable
+fun Wordmark(style: TextStyle, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = p.label)) { append("Space ") }
+            withStyle(SpanStyle(brush = Brush.linearGradient(p.brand))) { append("Bachao") }
+        },
+        style = style,
+        modifier = modifier,
+        maxLines = 1,
+    )
+}
+
+/** The app logo: gradient rounded square with two arrows pressing towards a line. */
+@Composable
+fun AppLogo(size: Dp, modifier: Modifier = Modifier) {
+    val p = LocalPalette.current
+    Canvas(
+        modifier
+            .size(size)
+            .shadow(size / 4, RoundedCornerShape(size * 0.26f), clip = false, ambientColor = p.gradC, spotColor = p.gradC)
+    ) {
+        val s = this.size.minDimension
+        val r = CornerRadius(s * 0.26f, s * 0.26f)
+        drawRoundRect(brush = Brush.linearGradient(p.logo, start = Offset.Zero, end = Offset(s, s)), cornerRadius = r)
+        drawRoundRect(
+            brush = Brush.verticalGradient(0f to Color.White.copy(alpha = 0.25f), 0.55f to Color.Transparent),
+            cornerRadius = r,
+        )
+        val w = s * 0.075f
+        val c = Color.White
+        val cx = s / 2
+        // middle line
+        drawLine(c, Offset(s * 0.27f, s * 0.5f), Offset(s * 0.73f, s * 0.5f), w, StrokeCap.Round)
+        // top arrow pointing down
+        drawLine(c, Offset(cx, s * 0.17f), Offset(cx, s * 0.40f), w, StrokeCap.Round)
+        drawLine(c, Offset(cx - s * 0.12f, s * 0.29f), Offset(cx, s * 0.41f), w, StrokeCap.Round)
+        drawLine(c, Offset(cx + s * 0.12f, s * 0.29f), Offset(cx, s * 0.41f), w, StrokeCap.Round)
+        // bottom arrow pointing up
+        drawLine(c, Offset(cx, s * 0.83f), Offset(cx, s * 0.60f), w, StrokeCap.Round)
+        drawLine(c, Offset(cx - s * 0.12f, s * 0.71f), Offset(cx, s * 0.59f), w, StrokeCap.Round)
+        drawLine(c, Offset(cx + s * 0.12f, s * 0.71f), Offset(cx, s * 0.59f), w, StrokeCap.Round)
+    }
+}
+
+/** Segmented control with a sliding gradient pill. */
 @Composable
 fun IOSSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val p = LocalPalette.current
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
-            .height(42.dp)
+            .height(44.dp)
             .clip(CircleShape)
             .background(p.card)
             .border(1.dp, p.border, CircleShape)
@@ -133,7 +221,7 @@ fun IOSSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                 .width(segment)
                 .fillMaxHeight()
                 .clip(CircleShape)
-                .background(p.thumb)
+                .background(Brush.horizontalGradient(p.brand))
         )
         Row(Modifier.fillMaxSize()) {
             options.forEachIndexed { i, label ->
@@ -150,7 +238,7 @@ fun IOSSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                         label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (i == selected) p.onThumb else p.secondary,
+                        color = if (i == selected) Color.White else p.secondary,
                         maxLines = 1,
                     )
                 }
@@ -159,7 +247,7 @@ fun IOSSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
     }
 }
 
-/** Main button: solid off-white with black text (or gold when colors are given). */
+/** Main button: gradient pill with a soft glow (like "Download Now"). */
 @Composable
 fun GlossyButton(
     text: String,
@@ -171,11 +259,11 @@ fun GlossyButton(
     height: Dp = 56.dp,
 ) {
     val p = LocalPalette.current
-    val c = colors ?: listOf(p.button, p.button)
+    val c = colors ?: p.brand
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "press")
-    val fg = textColor ?: p.onButton
+    val fg = textColor ?: Color.White
     Box(
         modifier
             .height(height)
@@ -183,10 +271,12 @@ fun GlossyButton(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(18.dp))
+            .shadow(18.dp, CircleShape, clip = false, ambientColor = c.last(), spotColor = c.last())
+            .clip(CircleShape)
             .background(Brush.horizontalGradient(c))
+            .background(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.18f), 0.5f to Color.Transparent))
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 22.dp),
+            .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -206,7 +296,7 @@ fun GlossyButton(
     }
 }
 
-/** Secondary button: dark with a thin border. */
+/** Secondary button: dark pill with a gradient rim. */
 @Composable
 fun GlassButton(
     text: String,
@@ -226,9 +316,9 @@ fun GlassButton(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(18.dp))
+            .clip(CircleShape)
             .background(p.card)
-            .border(1.dp, p.border, RoundedCornerShape(18.dp))
+            .border(1.dp, Brush.horizontalGradient(p.brand.map { it.copy(alpha = 0.6f) }), CircleShape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
@@ -271,20 +361,21 @@ fun GlassIconButton(
                     .align(Alignment.TopEnd)
                     .offset(x = 4.dp, y = (-2).dp)
                     .clip(CircleShape)
-                    .background(p.accent)
+                    .background(Brush.horizontalGradient(p.brand))
                     .padding(horizontal = 6.dp, vertical = 1.dp),
             ) {
-                Text(badge, color = p.onButton, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Text(badge, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-/** Large bold title with optional back button and trailing actions. */
+/** Large bold title with optional back button and trailing actions. brand = logo + gradient wordmark. */
 @Composable
 fun LargeTitle(
     title: String,
     onBack: (() -> Unit)? = null,
+    brand: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val p = LocalPalette.current
@@ -299,21 +390,26 @@ fun LargeTitle(
             if (onBack != null) {
                 GlassIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
             }
+            if (brand) AppLogo(40.dp)
             Spacer(Modifier.weight(1f))
             actions()
         }
-        Text(
-            title,
-            style = MaterialTheme.typography.displaySmall,
-            color = p.label,
-            modifier = Modifier.padding(top = 10.dp, bottom = 16.dp),
-        )
+        if (brand) {
+            Wordmark(MaterialTheme.typography.displaySmall, Modifier.padding(top = 12.dp, bottom = 16.dp))
+        } else {
+            Text(
+                title,
+                style = MaterialTheme.typography.displaySmall,
+                color = p.label,
+                modifier = Modifier.padding(top = 10.dp, bottom = 16.dp),
+            )
+        }
     }
 }
 
-/** Thin progress bar. */
+/** Thin progress bar with brand gradient. */
 @Composable
-fun CapsuleBar(fraction: Float, modifier: Modifier = Modifier, height: Dp = 6.dp, colors: List<Color>? = null) {
+fun CapsuleBar(fraction: Float, modifier: Modifier = Modifier, height: Dp = 7.dp, colors: List<Color>? = null) {
     val p = LocalPalette.current
     val anim by animateFloatAsState(fraction.coerceIn(0f, 1f), label = "bar")
     Box(
@@ -329,7 +425,7 @@ fun CapsuleBar(fraction: Float, modifier: Modifier = Modifier, height: Dp = 6.dp
                     .fillMaxWidth(anim)
                     .fillMaxHeight()
                     .clip(CircleShape)
-                    .background(Brush.horizontalGradient(colors ?: listOf(p.goldDeep, p.gold)))
+                    .background(Brush.horizontalGradient(colors ?: p.brand))
             )
         }
     }

@@ -20,8 +20,8 @@ android {
         applicationId = "com.spacebachao.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.5.0"
         // Test builds unlock Pro for the developer. Always false in the Play Store build.
         buildConfigField("boolean", "DEV_PRO", "false")
     }

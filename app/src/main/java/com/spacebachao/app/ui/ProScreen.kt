@@ -75,7 +75,7 @@ fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
                 .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.onButton, modifier = Modifier.size(46.dp))
+            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = p.onGold, modifier = Modifier.size(46.dp))
         }
         Spacer(Modifier.height(18.dp))
         Text(
@@ -145,6 +145,7 @@ fun ProScreen(state: UiState, paywall: Paywall, vm: AppViewModel) {
                 { activity?.let { vm.subscribe(it, plan) } },
                 Modifier.fillMaxWidth(),
                 colors = listOf(p.gold, p.goldDeep),
+                textColor = p.onGold,
             )
             if (paywall.reason != null && paywall.freeItems.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
@@ -198,7 +199,7 @@ private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: (
                 .background(if (selected) p.goldDeep else p.track),
             contentAlignment = Alignment.Center,
         ) {
-            if (selected) Box(Modifier.size(8.dp).clip(CircleShape).background(p.onButton))
+            if (selected) Box(Modifier.size(8.dp).clip(CircleShape).background(p.onGold))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -210,7 +211,7 @@ private fun PlanCard(plan: ProPlan, selected: Boolean, best: Boolean, onClick: (
                         "BEST VALUE",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = p.onButton,
+                        color = p.onGold,
                         modifier = Modifier
                             .clip(CircleShape)
                             .background(p.gold)

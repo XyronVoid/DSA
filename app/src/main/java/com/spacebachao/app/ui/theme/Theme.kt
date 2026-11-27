@@ -14,10 +14,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Dark premium palette: matte black, off-white buttons, gold highlights. Always dark. */
+/** Brand palette taken from the Space Bachao logo: deep navy, cyan → violet gradient, soft glows. */
 @Immutable
 data class Palette(
     val background: Color,
+    val glowTeal: Color,
+    val glowPurple: Color,
     val card: Color,
     val card2: Color,
     val border: Color,
@@ -32,39 +34,59 @@ data class Palette(
     val onButton: Color,
     val accent: Color,
     val accentLight: Color,
+    val gradA: Color,
+    val gradB: Color,
+    val gradC: Color,
+    val logoA: Color,
+    val logoB: Color,
+    val logoC: Color,
     val gold: Color,
     val goldDeep: Color,
+    val onGold: Color,
     val green: Color,
     val greenLight: Color,
     val red: Color,
     val orange: Color,
+) {
+    /** Cyan → indigo → violet, like the logo and the "Download" button. */
+    val brand: List<Color> get() = listOf(gradA, gradB, gradC)
+    val logo: List<Color> get() = listOf(logoA, logoB, logoC)
+}
+
+val Brand = Palette(
+    background = Color(0xFF0B0B1A),
+    glowTeal = Color(0xFF0B3A4A),
+    glowPurple = Color(0xFF3A1F66),
+    card = Color(0xFF12142A),
+    card2 = Color(0xFF181B35),
+    border = Color(0xFF262A4A),
+    label = Color(0xFFF4F6FF),
+    secondary = Color(0xFF9399BB),
+    tertiary = Color(0xFF5C6285),
+    separator = Color(0xFF22264A),
+    track = Color(0xFF1E2240),
+    thumb = Color(0xFFF4F6FF),
+    onThumb = Color.White,
+    button = Color(0xFF27CCEF),
+    onButton = Color.White,
+    accent = Color(0xFF4FD8F5),
+    accentLight = Color(0xFF8DE7FA),
+    gradA = Color(0xFF27CCEF),
+    gradB = Color(0xFF6A7DF4),
+    gradC = Color(0xFFA256F6),
+    logoA = Color(0xFF6ACDF7),
+    logoB = Color(0xFF7B86F5),
+    logoC = Color(0xFF9C58F4),
+    gold = Color(0xFFF3D28B),
+    goldDeep = Color(0xFFD9A84E),
+    onGold = Color(0xFF1C1405),
+    green = Color(0xFF34D399),
+    greenLight = Color(0xFF6EE7B7),
+    red = Color(0xFFFF7A7A),
+    orange = Color(0xFFFBBF24),
 )
 
-val Premium = Palette(
-    background = Color(0xFF0D0D0D),
-    card = Color(0xFF161616),
-    card2 = Color(0xFF1E1E1E),
-    border = Color(0xFF262626),
-    label = Color(0xFFF2F2F2),
-    secondary = Color(0xFF8A8A8A),
-    tertiary = Color(0xFF5A5A5A),
-    separator = Color(0xFF242424),
-    track = Color(0xFF242424),
-    thumb = Color(0xFFF2F2F2),
-    onThumb = Color(0xFF0D0D0D),
-    button = Color(0xFFF2F2F2),
-    onButton = Color(0xFF0D0D0D),
-    accent = Color(0xFFC9A96E),
-    accentLight = Color(0xFFE6CD9C),
-    gold = Color(0xFFE6CD9C),
-    goldDeep = Color(0xFFC9A96E),
-    green = Color(0xFF6FD39A),
-    greenLight = Color(0xFF9BE3BA),
-    red = Color(0xFFFF6B6B),
-    orange = Color(0xFFF5A524),
-)
-
-val LocalPalette = staticCompositionLocalOf { Premium }
+val LocalPalette = staticCompositionLocalOf { Brand }
 
 private val AppTypography = Typography().let { t ->
     t.copy(
@@ -85,16 +107,16 @@ private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(30.dp),
 )
 
 @Composable
 fun SpaceBachaoTheme(content: @Composable () -> Unit) {
-    val p = Premium
+    val p = Brand
     val scheme = darkColorScheme(
-        primary = p.button,
-        onPrimary = p.onButton,
+        primary = p.gradB,
+        onPrimary = Color.White,
         secondary = p.accent,
         background = p.background,
         onBackground = p.label,

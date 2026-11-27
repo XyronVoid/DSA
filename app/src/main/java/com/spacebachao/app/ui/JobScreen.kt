@@ -114,7 +114,7 @@ private fun RunningView(job: JobState, onCancel: () -> Unit) {
                 progress = if (pr >= 0f) pr else null,
                 size = 210.dp,
                 stroke = 20.dp,
-                colors = listOf(p.goldDeep, p.gold, p.goldDeep),
+                colors = listOf(p.gradA, p.gradB, p.gradC, p.gradA),
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -191,13 +191,13 @@ private fun ResultView(
                     Modifier
                         .size(84.dp)
                         .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(p.gold, p.goldDeep))),
+                        .background(Brush.linearGradient(p.brand)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(46.dp))
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
                 Spacer(Modifier.height(14.dp))
-                Text(job.savedSoFar.readableSize(), style = MaterialTheme.typography.displayMedium, color = p.label)
+                GradientText(job.savedSoFar.readableSize(), MaterialTheme.typography.displayMedium)
                 Text(
                     if (job.cancelled) "saved (stopped early)" else "space saved",
                     style = MaterialTheme.typography.titleMedium,
@@ -233,6 +233,7 @@ private fun ResultView(
                         onGetPro,
                         Modifier.fillMaxWidth(),
                         colors = listOf(p.gold, p.goldDeep),
+                        textColor = p.onGold,
                     )
                 }
             }

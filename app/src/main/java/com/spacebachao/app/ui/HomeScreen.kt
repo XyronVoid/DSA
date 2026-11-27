@@ -83,7 +83,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
-private val OtherGray = Color(0xFF4A4A4A)
 
 /** Grid item under a touch point (works with content padding). */
 private fun LazyGridState.keyAt(pos: Offset): Any? {
@@ -197,7 +196,7 @@ fun HomeScreen(
                 },
         ) {
             item(key = "h_title", span = { GridItemSpan(maxLineSpan) }) {
-                LargeTitle("Space Bachao") {
+                LargeTitle("Space Bachao", brand = true) {
                     ProPill(state.isPro, onClick = { vm.openPro() })
                     GlassIconButton(
                         Icons.Outlined.Delete,
@@ -354,23 +353,23 @@ private fun StorageCard(state: UiState) {
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                 Caps("Free")
-                Text(free.readableSize(), style = MaterialTheme.typography.headlineLarge, color = p.gold)
+                GradientText(free.readableSize(), MaterialTheme.typography.headlineLarge)
                 Text("of ${total.readableSize()}", style = MaterialTheme.typography.bodySmall, color = p.secondary)
             }
         }
         Spacer(Modifier.height(16.dp))
         SegmentBar(
             listOf(
-                photos.toFloat() / total to p.label,
-                videos.toFloat() / total to p.gold,
-                other.toFloat() / total to OtherGray,
+                photos.toFloat() / total to p.gradA,
+                videos.toFloat() / total to p.gradC,
+                other.toFloat() / total to p.tertiary,
             )
         )
         Spacer(Modifier.height(12.dp))
         Row {
-            Legend("Photos", photos.readableSize(), p.label, Modifier.weight(1f))
-            Legend("Videos", videos.readableSize(), p.gold, Modifier.weight(1f))
-            Legend("Other", other.readableSize(), OtherGray, Modifier.weight(1f))
+            Legend("Photos", photos.readableSize(), p.gradA, Modifier.weight(1f))
+            Legend("Videos", videos.readableSize(), p.gradC, Modifier.weight(1f))
+            Legend("Other", other.readableSize(), p.tertiary, Modifier.weight(1f))
         }
         Spacer(Modifier.height(16.dp))
         Hairline()
@@ -524,12 +523,15 @@ private fun MediaTile(file: MediaFile, selected: Boolean, onClick: () -> Unit) {
                 .padding(6.dp)
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(if (selected) p.gold else Color.Black.copy(alpha = 0.3f))
-                .border(1.5.dp, if (selected) p.gold else Color.White, CircleShape),
+                .background(
+                    if (selected) Brush.linearGradient(p.brand)
+                    else Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.3f), Color.Black.copy(alpha = 0.3f)))
+                )
+                .border(1.5.dp, Color.White, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
             }
         }
     }
@@ -567,11 +569,11 @@ private fun PdfRow(pdf: MediaFile, selected: Boolean, onToggle: () -> Unit, onRe
             Modifier
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(if (selected) p.gold else p.track),
+                .background(if (selected) Brush.linearGradient(p.brand) else Brush.linearGradient(listOf(p.track, p.track))),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = p.onButton, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
             }
         }
         Spacer(Modifier.width(12.dp))
